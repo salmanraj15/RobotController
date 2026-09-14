@@ -1,0 +1,21 @@
+cmake_minimum_required(VERSION 3.20)
+
+project(robot_controller
+    VERSION 0.1
+    LANGUAGES CXX
+)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+add_executable(robot_controller
+    src/main.cpp
+    src/Joint.cpp
+    src/Robot.cpp
+)
+
+target_include_directories(robot_controller
+    PRIVATE
+        include
+)
