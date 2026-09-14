@@ -2,6 +2,7 @@
 
 Joint::Joint(Angle min_position, Angle max_position, AngularAcceleration max_acceleration)
     : position_{Angle{0.0}},
+      target_position_{Angle{0.0}},
       velocity_{AngularVelocity{0.0}},
       acceleration_{AngularAcceleration{0.0}},
       torque_{0.0},
@@ -21,6 +22,16 @@ bool Joint::setPosition(Angle position)
 
     position_ = position;
     return true;
+}
+
+void Joint::setTargetPosition(Angle target)
+{
+    target_position_ = target;
+}
+
+Angle Joint::targetPosition() const
+{
+    return target_position_;
 }
 
 bool Joint::setAcceleration(AngularAcceleration acceleration)

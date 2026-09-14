@@ -11,15 +11,20 @@ public:
     Joint(Angle min_position, Angle max_position, AngularAcceleration max_acceleration);
 
     bool setPosition(Angle position);
+    void setTargetPosition(Angle Target);
     bool setAcceleration(AngularAcceleration acceleration);
     void update (Duration dt);
+    
 
     Angle position() const;
+    Angle targetPosition() const;
     AngularVelocity velocity() const;
     double torque() const;
 
 private:
     Angle position_;
+    Angle target_position_;
+
     AngularVelocity velocity_;
     AngularAcceleration acceleration_;
     double torque_;

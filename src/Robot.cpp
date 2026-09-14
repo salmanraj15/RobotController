@@ -14,6 +14,10 @@ void Robot::printState() const
                   << joints_[i].position().degrees()
                   << " degrees";
 
+        std::cout << "\nTarget: "
+                  << joints_[i].targetPosition().degrees()
+                  << " degrees";
+
         std::cout << "\nVelocity: "
                   << joints_[i].velocity().degreesPerSecond();
 
@@ -32,6 +36,16 @@ bool Robot::setJointPosition(std::size_t index, Angle position)
     return joints_[index].setPosition(position);
 }
 
+bool Robot::setJointTargetPosition(std::size_t index, Angle target)
+{
+    if (index >= joints_.size())
+    {
+        return false;
+    }
+    joints_[index].setTargetPosition(target);
+    return true;
+}
+
 bool Robot::setJointAcceleration(
     std::size_t index,
     AngularAcceleration acceleration)
@@ -40,14 +54,20 @@ bool Robot::setJointAcceleration(
     {
         return false;
     }
-
     return joints_[index].setAcceleration(acceleration);
 }
 
 void Robot::update(Duration dt)
 {
-    for (auto& joint : joints_)
+    for (auto &joint : joints_)
     {
+        const AngularAcceleration acceleration =
+            controller_.calculate(
+                joint.targetPosition(),
+                joint.position(),
+                joint.velocity());
+
+        joint.setAcceleration(acceleration);
         joint.update(dt);
     }
 }

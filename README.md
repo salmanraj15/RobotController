@@ -35,11 +35,14 @@ The project currently contains:
 * A 6-DOF robot model
 * Individual joint objects
 * Joint position limits
+* Joint velocity limits
 * Joint acceleration limits
-* Position and acceleration commands
+* Position target commands
 * Simulated joint dynamics
 * Angular velocity state
 * Strong types for physical quantities
+* A PD controller
+* Acceleration command limiting
 * A basic simulation update loop
 * C++20 build configuration using CMake and Ninja
 
@@ -56,11 +59,12 @@ The joint is updated using semi-implicit Euler integration:
 
 ```text
 velocity = velocity + acceleration × dt
-
 position = position + velocity × dt
 ```
 
 Using the newly calculated velocity for the position update gives the current simulation its semi-implicit Euler behavior.
+
+The joint also enforces a maximum velocity. This prevents the simulated joint from accelerating indefinitely and establishes another actuator-level safety boundary.
 
 ## Strong Types
 
@@ -91,17 +95,20 @@ This prevents accidental mixing of physically different quantities and makes int
 
 ## Joint Safety
 
-Each joint has configurable position and acceleration limits.
+Each joint has configurable position, velocity, and acceleration limits.
 
 For example, a joint may be configured with:
 
 ```text
 Minimum position:       -180°
 Maximum position:        180°
+Maximum velocity:        60 deg/s
 Maximum acceleration:    30 deg/s²
 ```
 
-Commands outside the permitted range are rejected.
+Commands outside the permitted range are rejected where applicable.
+
+The joint itself remains the final safety boundary for its physical state. This means higher-level components such as the controller may request an acceleration, but the joint is responsible for ensuring its state remains within its configured limits.
 
 If a joint reaches a position limit during simulation, the current implementation:
 
@@ -109,31 +116,79 @@ If a joint reaches a position limit during simulation, the current implementatio
 2. Sets velocity to zero.
 3. Sets acceleration to zero.
 
-This provides a basic safety boundary around the simulated joint state.
+Velocity is also limited to the configured maximum in either direction.
+
+This provides basic safety boundaries around the simulated joint state.
+
+## Position Control
+
+The robot now supports target positions for its joints.
+
+A target position represents where the controller wants the joint to move, while the joint's current position represents the simulated actual state.
+
+The current controller is a proportional-derivative (PD) controller.
+
+Conceptually:
+
+```text
+position error = target position - actual position
+
+acceleration command =
+    Kp × position error
+    - Kd × velocity
+```
+
+The controller's acceleration command is limited to the configured maximum acceleration before being passed to the joint.
+
+The PD controller therefore provides both:
+
+* Position-based correction
+* Velocity-based damping
+
+The current implementation is intentionally simple and is used to introduce the separation between control logic and joint dynamics.
 
 ## Current Robot
 
 The robot contains six joints:
 
 ```text
-Joint 1: -180° to 180°, max acceleration 30 deg/s²
-Joint 2:  -90° to  90°, max acceleration 30 deg/s²
-Joint 3: -180° to 180°, max acceleration 30 deg/s²
-Joint 4: -180° to 180°, max acceleration 30 deg/s²
-Joint 5:  -90° to  90°, max acceleration 30 deg/s²
-Joint 6: -180° to 180°, max acceleration 30 deg/s²
+Joint 1: -180° to 180°, max velocity 60 deg/s, max acceleration 30 deg/s²
+
+Joint 2:  -90° to  90°, max velocity 60 deg/s, max acceleration 30 deg/s²
+
+Joint 3: -180° to 180°, max velocity 60 deg/s, max acceleration 30 deg/s²
+
+Joint 4: -180° to 180°, max velocity 60 deg/s, max acceleration 30 deg/s²
+
+Joint 5:  -90° to  90°, max velocity 60 deg/s, max acceleration 30 deg/s²
+
+Joint 6: -180° to 180°, max velocity 60 deg/s, max acceleration 30 deg/s²
 ```
 
 The robot currently exposes operations for:
 
 * Setting a joint position
+* Setting a joint target position
 * Setting a joint acceleration
 * Updating all joints
 * Printing the current robot state
 
+During normal operation, the robot calculates the acceleration command through the PD controller before updating each joint.
+
 ## Example
 
-A valid acceleration command:
+A target position can be assigned with:
+
+```cpp
+robot.setJointTargetPosition(
+    0,
+    Angle{90.0}
+);
+```
+
+The robot's controller then calculates an acceleration command based on the difference between the target and actual position.
+
+A manually supplied acceleration command is still available for testing:
 
 ```cpp
 robot.setJointAcceleration(
@@ -142,9 +197,7 @@ robot.setJointAcceleration(
 );
 ```
 
-is accepted.
-
-A command exceeding the configured joint limit:
+A command exceeding the configured joint acceleration limit:
 
 ```cpp
 robot.setJointAcceleration(
@@ -155,43 +208,26 @@ robot.setJointAcceleration(
 
 is rejected.
 
-With an acceleration of `30 deg/s²` and a `0.1 s` simulation step, the first few updates produce:
-
-```text
-Time: 0.1 s
-Position: 0.3 degrees
-Velocity: 3
-
-Time: 0.2 s
-Position: 0.9 degrees
-Velocity: 6
-
-Time: 0.3 s
-Position: 1.8 degrees
-Velocity: 9
-
-...
-
-Time: 1.0 s
-Position: 16.5 degrees
-Velocity: 30
-```
-
 ## Project Structure
 
 ```text
 RobotController/
+
 ├── CMakeLists.txt
+├── README.md
+├── .gitignore
 ├── include/
 │   ├── Angle.hpp
 │   ├── Duration.hpp
 │   ├── AngularVelocity.hpp
 │   ├── AngularAcceleration.hpp
 │   ├── Joint.hpp
-│   └── Robot.hpp
+│   ├── Robot.hpp
+│   └── PDController.hpp
 └── src/
     ├── Joint.cpp
     ├── Robot.cpp
+    ├── PDController.cpp
     └── main.cpp
 ```
 
@@ -249,18 +285,21 @@ The development process emphasizes:
 * [x] Basic `Robot` and `Joint` classes
 * [x] Six-joint robot model
 * [x] Joint position limits
+* [x] Joint velocity limits
 * [x] Joint acceleration limits
 * [x] Simulated joint dynamics
 * [x] `Angle` strong type
 * [x] `Duration` strong type
 * [x] `AngularVelocity` strong type
 * [x] `AngularAcceleration` strong type
+* [x] Position targets
+* [x] Basic PD controller
+* [x] Controller acceleration limiting
 
 ### Next
 
-* [ ] Position target and feedback control
-* [ ] Basic controller
 * [ ] Separate commanded state from actual state
+* [ ] Improve controller architecture
 * [ ] Safety layer
 * [ ] Motor interface abstraction
 * [ ] Robot simulator
