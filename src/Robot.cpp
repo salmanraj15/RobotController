@@ -26,14 +26,14 @@ void Robot::printState() const
     }
 }
 
-bool Robot::setJointPosition(std::size_t index, Angle position)
+bool Robot::initializeJointPosition(std::size_t index, Angle position)
 {
     if (index >= joints_.size())
     {
         return false;
     }
 
-    return joints_[index].setPosition(position);
+    return joints_[index].initializePosition(position);
 }
 
 bool Robot::setJointTargetPosition(std::size_t index, Angle target)
@@ -61,13 +61,13 @@ void Robot::update(Duration dt)
 {
     for (auto &joint : joints_)
     {
-        const AngularAcceleration acceleration =
+        const AngularAcceleration requested_acceleration  =
             controller_.calculate(
                 joint.targetPosition(),
                 joint.position(),
                 joint.velocity());
 
-        joint.setAcceleration(acceleration);
+        joint.setAcceleration(requested_acceleration);
         joint.update(dt);
     }
 }

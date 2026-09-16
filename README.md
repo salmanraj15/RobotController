@@ -42,8 +42,8 @@ The project currently contains:
 * Angular velocity state
 * Strong types for physical quantities
 * A PD controller
-* Acceleration command limiting
-* A basic simulation update loop
+* A SafetyLayer for validating acceleration commands against joint limits
+* A basic simulation update loop at a 1 ms timestep
 * C++20 build configuration using CMake and Ninja
 
 ### Current Simulation Model
@@ -100,25 +100,19 @@ Each joint has configurable position, velocity, and acceleration limits.
 For example, a joint may be configured with:
 
 ```text
-Minimum position:       -180°
-Maximum position:        180°
-Maximum velocity:        60 deg/s
-Maximum acceleration:    30 deg/s²
+Minimum position:        -180°
+Maximum position:         180°
+Maximum velocity:         60 deg/s
+Maximum acceleration:     30 deg/s²
 ```
 
 Commands outside the permitted range are rejected where applicable.
 
-The joint itself remains the final safety boundary for its physical state. This means higher-level components such as the controller may request an acceleration, but the joint is responsible for ensuring its state remains within its configured limits.
+The Joint owns its physical limits. Higher-level components such as the controller may request an acceleration, while the SafetyLayer validates that request against the limits owned by the Joint.
 
-If a joint reaches a position limit during simulation, the current implementation:
+The SafetyLayer currently validates acceleration commands and rejects requests that exceed the Joint's configured acceleration limit. It has been implemented but is not yet integrated into the robot's main control/update path.
 
-1. Clamps the position to the limit.
-2. Sets velocity to zero.
-3. Sets acceleration to zero.
-
-Velocity is also limited to the configured maximum in either direction.
-
-This provides basic safety boundaries around the simulated joint state.
+The Joint remains responsible for enforcing limits on its physical state during simulation.
 
 ## Position Control
 
@@ -138,7 +132,9 @@ acceleration command =
     - Kd × velocity
 ```
 
-The controller's acceleration command is limited to the configured maximum acceleration before being passed to the joint.
+The controller generates a requested acceleration command. The SafetyLayer provides a separate validation step that checks the requested command against the Joint's configured acceleration limit.
+
+The SafetyLayer is currently implemented but has not yet been connected to the robot's main control/update path.
 
 The PD controller therefore provides both:
 
@@ -186,7 +182,7 @@ robot.setJointTargetPosition(
 );
 ```
 
-The robot's controller then calculates an acceleration command based on the difference between the target and actual position.
+The robot's controller then calculates an acceleration command using the position error and current joint velocity.
 
 A manually supplied acceleration command is still available for testing:
 
@@ -223,11 +219,13 @@ RobotController/
 │   ├── AngularAcceleration.hpp
 │   ├── Joint.hpp
 │   ├── Robot.hpp
-│   └── PDController.hpp
+│   ├── PDController.hpp
+│   └── SafetyLayer.hpp
 └── src/
     ├── Joint.cpp
     ├── Robot.cpp
     ├── PDController.cpp
+    ├── SafetyLayer.cpp
     └── main.cpp
 ```
 
@@ -295,12 +293,13 @@ The development process emphasizes:
 * [x] Position targets
 * [x] Basic PD controller
 * [x] Controller acceleration limiting
+* [x] SafetyLayer acceleration validation
 
 ### Next
 
+* [ ] Integrate SafetyLayer into robot control path
 * [ ] Separate commanded state from actual state
 * [ ] Improve controller architecture
-* [ ] Safety layer
 * [ ] Motor interface abstraction
 * [ ] Robot simulator
 * [ ] Fixed-period control loop

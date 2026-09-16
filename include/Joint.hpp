@@ -8,17 +8,17 @@
 class Joint
 {
 public:
-    Joint(Angle min_position, Angle max_position, AngularAcceleration max_acceleration);
-
-    bool setPosition(Angle position);
-    void setTargetPosition(Angle Target);
+    Joint(Angle min_position, Angle max_position, AngularVelocity max_velocity, AngularAcceleration max_acceleration);
+    bool initializePosition(Angle position);
+    void setTargetPosition(Angle target);
     bool setAcceleration(AngularAcceleration acceleration);
-    void update (Duration dt);
+    void update (const Duration& dt);
     
 
     Angle position() const;
     Angle targetPosition() const;
     AngularVelocity velocity() const;
+    AngularAcceleration maxAcceleration() const;
     double torque() const;
 
 private:
@@ -26,11 +26,13 @@ private:
     Angle target_position_;
 
     AngularVelocity velocity_;
-    AngularAcceleration acceleration_;
+    AngularAcceleration applied_acceleration_;
+
     double torque_;
 
     Angle min_position_;
     Angle max_position_;
 
+    AngularVelocity max_velocity_;
     AngularAcceleration max_acceleration_;
 };

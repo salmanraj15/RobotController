@@ -13,6 +13,12 @@ public:
         return seconds_;
     }
 
+    Duration& operator+=(const Duration& other)
+    {
+        seconds_ += other.seconds_;
+        return *this;
+    }
+
 private:
     double seconds_;
 };

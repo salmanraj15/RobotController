@@ -4,21 +4,29 @@
 
 int main()
 {
-Robot robot;
+    Robot robot;
 
-robot.setJointPosition(0, Angle{0.0});
-robot.setJointTargetPosition(0, Angle{90.0});
+    const Duration dt{0.001};
+    Duration simulation_time{0.0};
 
-for (int i = 0; i < 100; ++i)
-{
-    robot.update(Duration{0.1});
+    robot.initializeJointPosition(0, Angle{0.0});
+    robot.setJointTargetPosition(0, Angle{90.0});
 
-    std::cout << "\nTime: "
-              << (i + 1) * 0.1
-              << " s\n";
+    for (int i = 0; i < 2500; ++i)
+    {
+        robot.update(dt);
 
-    robot.printState();
-}
+        simulation_time += dt;
 
-return 0;
+        if ((i + 1) % 100 == 0)
+        {
+            std::cout << "\nTime: "
+                      << simulation_time.seconds()
+                      << " s\n";
+
+            robot.printState();
+        }
+    }
+
+    return 0;
 }
