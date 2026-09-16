@@ -1,4 +1,5 @@
 #include "Robot.hpp"
+#include "SafetyLayer.hpp"
 
 #include <iostream>
 
@@ -61,13 +62,20 @@ void Robot::update(Duration dt)
 {
     for (auto &joint : joints_)
     {
-        const AngularAcceleration requested_acceleration  =
+        const AngularAcceleration requested_acceleration =
             controller_.calculate(
                 joint.targetPosition(),
                 joint.position(),
                 joint.velocity());
+        if (safety_layer_.validate(joint, requested_acceleration))
+        {
+            joint.setAcceleration(requested_acceleration);
+        }
+        else
+        {
+            joint.setAcceleration(AngularAcceleration{0.0});
+        }
 
-        joint.setAcceleration(requested_acceleration);
         joint.update(dt);
     }
 }

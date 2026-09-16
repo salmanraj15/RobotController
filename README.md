@@ -294,10 +294,10 @@ The development process emphasizes:
 * [x] Basic PD controller
 * [x] Controller acceleration limiting
 * [x] SafetyLayer acceleration validation
+* [x] Integrate SafetyLayer into robot control path
 
 ### Next
 
-* [ ] Integrate SafetyLayer into robot control path
 * [ ] Separate commanded state from actual state
 * [ ] Improve controller architecture
 * [ ] Motor interface abstraction

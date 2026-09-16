@@ -1,11 +1,12 @@
-#pragma
+#pragma once
 
-#include "joint.hpp"
+#include "Joint.hpp"
 #include "AngularAcceleration.hpp"
 
 class SafetyLayer
 {
-    public:
-        bool validate(const Joint& joint, AngularAcceleration requested) const;
-
+public:
+    bool validate(
+        const Joint& joint,
+        AngularAcceleration requested) const;
 };
