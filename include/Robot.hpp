@@ -6,6 +6,7 @@
 #include "Joint.hpp"
 #include "PDController.hpp"
 #include "SafetyLayer.hpp"
+#include "PDControllerConfig.hpp"
 
 class Robot
 {
@@ -40,9 +41,10 @@ private:
 
     // Calculates acceleration commands for the joints.
     PDController controller_{
+    PDControllerConfig{
         1.0,
         0.5,
-        AngularAcceleration{30.0}};
+        AngularAcceleration{30.0}}};
 
     // Checks controller commands against the joint's safety limits.
     SafetyLayer safety_layer_;

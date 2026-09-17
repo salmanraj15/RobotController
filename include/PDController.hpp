@@ -1,19 +1,14 @@
 #pragma once
 
-#include "Angle.hpp"
 #include "AngularAcceleration.hpp"
-#include "AngularVelocity.hpp"
-#include "Joint.hpp"
+#include "JointTypes.hpp"
+#include "PDControllerConfig.hpp"
 
 class PDController
 {
 public:
-    // Creates a controller with position and velocity gains
-    // and a maximum acceleration command.
-    PDController(
-        double position_gain,
-        double velocity_gain,
-        AngularAcceleration max_acceleration);
+    // Creates a controller from its configuration.
+    PDController(const PDControllerConfig& config);
 
     // Calculates an acceleration command from the desired
     // joint command and the joint's current state.

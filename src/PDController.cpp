@@ -1,12 +1,9 @@
 #include "PDController.hpp"
 
-PDController::PDController(
-    double position_gain,
-    double velocity_gain,
-    AngularAcceleration max_acceleration)
-    : position_gain_{position_gain},
-      velocity_gain_{velocity_gain},
-      max_acceleration_{max_acceleration}
+PDController::PDController(const PDControllerConfig& config)
+    : position_gain_{config.position_gain},
+      velocity_gain_{config.velocity_gain},
+      max_acceleration_{config.max_acceleration}
 {
 }
 

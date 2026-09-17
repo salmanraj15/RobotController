@@ -296,11 +296,11 @@ The development process emphasizes:
 * [x] SafetyLayer acceleration validation
 * [x] Integrate SafetyLayer into robot control path
 * [x] Separate commanded state from actual state
+* [x] Improve controller architecture
 
 
 ### Next
 
-* [x] Improve controller architecture
 * [ ] Motor interface abstraction
 * [ ] Robot simulator
 * [ ] Fixed-period control loop
