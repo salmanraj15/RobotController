@@ -62,7 +62,7 @@ bool Robot::setJointAcceleration(
 
 void Robot::update(Duration dt)
 {
-    for (auto& joint : joints_)
+    for (auto &joint : joints_)
     {
         // Read the command and actual state before calculating the next control output.
         const JointState actual_state = joint.state();
@@ -85,7 +85,7 @@ void Robot::update(Duration dt)
             joint.setAcceleration(AngularAcceleration{0.0});
         }
 
-        // Advance the joint simulation using the validated acceleration.
-        joint.update(dt);
+        // Advance the physical simulation after all motor commands are prepared.
+        simulator_.update(dt);
     }
 }

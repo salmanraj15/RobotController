@@ -42,7 +42,11 @@ The project currently contains:
 * Angular velocity state
 * Strong types for physical quantities
 * A PD controller
-* A SafetyLayer for validating acceleration commands against joint limits
+* A configurable PD controller
+* A SafetyLayer for validating acceleration commands
+* A MotorInterface abstraction
+* A simulated motor implementation
+* A RobotSimulator responsible for advancing physical state
 * A basic simulation update loop at a 1 ms timestep
 * C++20 build configuration using CMake and Ninja
 
@@ -55,7 +59,7 @@ Each joint currently uses:
 * Acceleration: degrees/second²
 * Time step: seconds
 
-The joint is updated using semi-implicit Euler integration:
+The simulator uses semi-implicit Euler integration:
 
 ```text
 velocity = velocity + acceleration × dt
@@ -64,7 +68,9 @@ position = position + velocity × dt
 
 Using the newly calculated velocity for the position update gives the current simulation its semi-implicit Euler behavior.
 
-The joint also enforces a maximum velocity. This prevents the simulated joint from accelerating indefinitely and establishes another actuator-level safety boundary.
+The simulator also enforces each joint's configured velocity and position limits.
+
+The `RobotSimulator` is responsible for advancing the simulated physical state. The `Joint` stores its physical state and exposes the limits and actuator command needed by the simulator.
 
 ## Strong Types
 
@@ -108,15 +114,15 @@ Maximum acceleration:     30 deg/s²
 
 Commands outside the permitted range are rejected where applicable.
 
-The Joint owns its physical limits. Higher-level components such as the controller may request an acceleration, while the SafetyLayer validates that request against the limits owned by the Joint.
+The `Joint` owns its physical limits. Higher-level components such as the controller may request an acceleration, while the `SafetyLayer` validates that request against the limits owned by the `Joint`.
 
-The SafetyLayer validates acceleration commands and rejects requests that exceed the Joint's configured acceleration limit. It is integrated into the robot's main control/update path.
+The `SafetyLayer` is integrated into the robot's main control/update path as a separate validation step.
 
-The Joint remains responsible for enforcing limits on its physical state during simulation.
+The `RobotSimulator` is responsible for enforcing the simulated velocity and position constraints while advancing the physical state.
 
 ## Position Control
 
-The robot now supports target positions for its joints.
+The robot supports target positions for its joints.
 
 A target position represents where the controller wants the joint to move, while the joint's current position represents the simulated actual state.
 
@@ -132,9 +138,9 @@ acceleration command =
     - Kd × velocity
 ```
 
-The controller generates a requested acceleration command. The SafetyLayer provides a separate validation step that checks the requested command against the Joint's configured acceleration limit.
+The controller generates a requested acceleration command.
 
-The SafetyLayer is integrated into the robot's main control/update path as a separate validation step.
+The `SafetyLayer` provides a separate validation step that checks the requested command against the Joint's configured acceleration limit.
 
 The PD controller therefore provides both:
 
@@ -143,21 +149,59 @@ The PD controller therefore provides both:
 
 The current implementation is intentionally simple and is used to introduce the separation between control logic and joint dynamics.
 
+## Motor Interface
+
+The robot uses a `MotorInterface` abstraction to separate the controller and joint logic from the underlying actuator implementation.
+
+The interface currently allows an acceleration command to be sent to a motor and allows the current commanded acceleration to be read.
+
+The simulator uses `SimulatedMotor` as its motor implementation.
+
+This establishes the separation:
+
+```text
+Controller
+    ↓
+Joint
+    ↓
+MotorInterface
+    ↓
+SimulatedMotor
+    ↓
+RobotSimulator
+    ↓
+Simulated physical state
+```
+
+The interface can later be extended with more realistic actuator behavior without requiring the controller to depend directly on a concrete motor implementation.
+
+## Robot Simulator
+
+The `RobotSimulator` advances the physical state of all six joints.
+
+The simulator currently:
+
+* Reads the acceleration commanded to each motor
+* Integrates joint velocity
+* Integrates joint position
+* Enforces velocity limits
+* Enforces position limits
+* Updates the simulated joint state
+
+The simulator currently uses a fixed 1 ms timestep supplied by the robot update path.
+
+The simulation is intentionally simple at this stage. More realistic actuator and mechanical behavior can be introduced later.
+
 ## Current Robot
 
 The robot contains six joints:
 
 ```text
 Joint 1: -180° to 180°, max velocity 60 deg/s, max acceleration 30 deg/s²
-
 Joint 2:  -90° to  90°, max velocity 60 deg/s, max acceleration 30 deg/s²
-
 Joint 3: -180° to 180°, max velocity 60 deg/s, max acceleration 30 deg/s²
-
 Joint 4: -180° to 180°, max velocity 60 deg/s, max acceleration 30 deg/s²
-
 Joint 5:  -90° to  90°, max velocity 60 deg/s, max acceleration 30 deg/s²
-
 Joint 6: -180° to 180°, max velocity 60 deg/s, max acceleration 30 deg/s²
 ```
 
@@ -169,7 +213,7 @@ The robot currently exposes operations for:
 * Updating all joints
 * Printing the current robot state
 
-During normal operation, the robot calculates the acceleration command through the PD controller before updating each joint.
+During normal operation, the robot calculates acceleration commands through the PD controller, validates them through the SafetyLayer, sends them to the motors, and then advances the physical simulation.
 
 ## Example
 
@@ -217,15 +261,23 @@ RobotController/
 │   ├── Duration.hpp
 │   ├── AngularVelocity.hpp
 │   ├── AngularAcceleration.hpp
+│   ├── JointTypes.hpp
 │   ├── Joint.hpp
-│   ├── Robot.hpp
+│   ├── PDControllerConfig.hpp
 │   ├── PDController.hpp
-│   └── SafetyLayer.hpp
+│   ├── SafetyLayer.hpp
+│   ├── MotorInterface.hpp
+│   ├── SimulatedMotor.hpp
+│   ├── RobotSimulator.hpp
+│   └── Robot.hpp
+│
 └── src/
     ├── Joint.cpp
     ├── Robot.cpp
     ├── PDController.cpp
     ├── SafetyLayer.cpp
+    ├── SimulatedMotor.cpp
+    ├── RobotSimulator.cpp
     └── main.cpp
 ```
 
@@ -297,12 +349,11 @@ The development process emphasizes:
 * [x] Integrate SafetyLayer into robot control path
 * [x] Separate commanded state from actual state
 * [x] Improve controller architecture
-
+* [x] Motor interface abstraction
+* [x] Robot simulator
 
 ### Next
 
-* [ ] Motor interface abstraction
-* [ ] Robot simulator
 * [ ] Fixed-period control loop
 * [ ] 1 kHz control loop
 * [ ] Real-time-oriented data structures

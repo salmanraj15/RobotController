@@ -10,4 +10,7 @@ public:
 
     // Sends an acceleration command to the motor.
     virtual void setAcceleration(AngularAcceleration acceleration) = 0;
+
+    // Returns the acceleration command currently held by the motor.
+    virtual AngularAcceleration acceleration() const = 0;
 };

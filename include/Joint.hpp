@@ -15,12 +15,12 @@ public:
         Angle max_position,
         AngularVelocity max_velocity,
         AngularAcceleration max_acceleration,
-        MotorInterface& motor);
+        MotorInterface &motor);
 
     bool initializePosition(Angle position);
     void setTargetPosition(Angle target);
     bool setAcceleration(AngularAcceleration acceleration);
-    void update(const Duration& dt);
+    void update(const Duration &dt);
 
     // Returns the joint's current position.
     Angle position() const;
@@ -40,6 +40,16 @@ public:
     // Returns the maximum acceleration allowed for this joint.
     AngularAcceleration maxAcceleration() const;
 
+    AngularVelocity maxVelocity() const;
+    Angle minPosition() const;
+    Angle maxPosition() const;
+
+    // Returns the acceleration currently commanded to the motor.
+    AngularAcceleration motorAcceleration() const;
+
+    // Updates the joint's simulated physical state.
+    void simulate(AngularVelocity velocity, Angle position);
+
     double torque() const;
 
 private:
@@ -52,9 +62,6 @@ private:
     // The joint's current simulated velocity.
     AngularVelocity velocity_;
 
-    // The acceleration currently being applied to the simulation.
-    AngularAcceleration applied_acceleration_;
-
     double torque_;
 
     Angle min_position_;
@@ -62,7 +69,8 @@ private:
 
     AngularVelocity max_velocity_;
     AngularAcceleration max_acceleration_;
-    
+
     // The motor interface used to send commands to the actuator.
-    MotorInterface& motor_;;
+    MotorInterface &motor_;
+    ;
 };

@@ -5,11 +5,10 @@ Joint::Joint(
     Angle max_position,
     AngularVelocity max_velocity,
     AngularAcceleration max_acceleration,
-    MotorInterface& motor)
+    MotorInterface &motor)
     : position_{Angle{0.0}},
       command_{JointCommand{Angle{0.0}}},
       velocity_{AngularVelocity{0.0}},
-      applied_acceleration_{AngularAcceleration{0.0}},
       torque_{0.0},
       min_position_{min_position},
       max_position_{max_position},
@@ -49,59 +48,9 @@ bool Joint::setAcceleration(AngularAcceleration acceleration)
     {
         return false;
     }
-
-    applied_acceleration_ = acceleration;
     motor_.setAcceleration(acceleration);
 
     return true;
-}
-
-void Joint::update(const Duration& dt)
-{
-    // Apply acceleration first, then use the new velocity to update position.
-    const double new_velocity =
-        velocity_.degreesPerSecond() +
-        applied_acceleration_.degreesPerSecondSquared() * dt.seconds();
-
-    const double max_velocity = max_velocity_.degreesPerSecond();
-
-    double limited_velocity = new_velocity;
-
-    // Keep the simulated velocity within the joint's configured limit.
-    if (limited_velocity > max_velocity)
-    {
-        limited_velocity = max_velocity;
-    }
-
-    if (limited_velocity < -max_velocity)
-    {
-        limited_velocity = -max_velocity;
-    }
-
-    velocity_ = AngularVelocity{limited_velocity};
-
-    const double new_position =
-        position_.degrees() +
-        velocity_.degreesPerSecond() * dt.seconds();
-
-    // Stop the joint if the simulated position reaches a physical limit.
-    if (new_position < min_position_.degrees())
-    {
-        position_ = min_position_;
-        velocity_ = AngularVelocity{0.0};
-        applied_acceleration_ = AngularAcceleration{0.0};
-        return;
-    }
-
-    if (new_position > max_position_.degrees())
-    {
-        position_ = max_position_;
-        velocity_ = AngularVelocity{0.0};
-        applied_acceleration_ = AngularAcceleration{0.0};
-        return;
-    }
-
-    position_ = Angle{new_position};
 }
 
 Angle Joint::position() const
@@ -117,6 +66,32 @@ AngularVelocity Joint::velocity() const
 AngularAcceleration Joint::maxAcceleration() const
 {
     return max_acceleration_;
+}
+
+AngularVelocity Joint::maxVelocity() const
+{
+    return max_velocity_;
+}
+
+Angle Joint::minPosition() const
+{
+    return min_position_;
+}
+
+Angle Joint::maxPosition() const
+{
+    return max_position_;
+}
+
+AngularAcceleration Joint::motorAcceleration() const
+{
+    return motor_.acceleration();
+}
+
+void Joint::simulate(AngularVelocity velocity, Angle position)
+{
+    velocity_ = velocity;
+    position_ = position;
 }
 
 double Joint::torque() const
@@ -135,3 +110,4 @@ JointCommand Joint::command() const
 {
     return command_;
 }
+
