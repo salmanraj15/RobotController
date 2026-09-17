@@ -15,6 +15,7 @@ add_executable(robot_controller
     src/Robot.cpp
     src/PDController.cpp
     src/SafetyLayer.cpp
+    src/SimulatedMotor.cpp
 )
 
 target_include_directories(robot_controller

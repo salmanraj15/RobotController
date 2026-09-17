@@ -4,7 +4,8 @@ Joint::Joint(
     Angle min_position,
     Angle max_position,
     AngularVelocity max_velocity,
-    AngularAcceleration max_acceleration)
+    AngularAcceleration max_acceleration,
+    MotorInterface& motor)
     : position_{Angle{0.0}},
       command_{JointCommand{Angle{0.0}}},
       velocity_{AngularVelocity{0.0}},
@@ -13,7 +14,8 @@ Joint::Joint(
       min_position_{min_position},
       max_position_{max_position},
       max_velocity_{max_velocity},
-      max_acceleration_{max_acceleration}
+      max_acceleration_{max_acceleration},
+      motor_{motor}
 {
 }
 
@@ -49,6 +51,7 @@ bool Joint::setAcceleration(AngularAcceleration acceleration)
     }
 
     applied_acceleration_ = acceleration;
+    motor_.setAcceleration(acceleration);
 
     return true;
 }

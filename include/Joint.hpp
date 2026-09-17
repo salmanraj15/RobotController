@@ -5,6 +5,7 @@
 #include "AngularVelocity.hpp"
 #include "AngularAcceleration.hpp"
 #include "JointTypes.hpp"
+#include "MotorInterface.hpp"
 
 class Joint
 {
@@ -13,7 +14,8 @@ public:
         Angle min_position,
         Angle max_position,
         AngularVelocity max_velocity,
-        AngularAcceleration max_acceleration);
+        AngularAcceleration max_acceleration,
+        MotorInterface& motor);
 
     bool initializePosition(Angle position);
     void setTargetPosition(Angle target);
@@ -60,4 +62,7 @@ private:
 
     AngularVelocity max_velocity_;
     AngularAcceleration max_acceleration_;
+    
+    // The motor interface used to send commands to the actuator.
+    MotorInterface& motor_;;
 };
