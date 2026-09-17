@@ -43,6 +43,7 @@ bool Robot::setJointTargetPosition(std::size_t index, Angle target)
     {
         return false;
     }
+
     joints_[index].setTargetPosition(target);
     return true;
 }
@@ -55,27 +56,36 @@ bool Robot::setJointAcceleration(
     {
         return false;
     }
+
     return joints_[index].setAcceleration(acceleration);
 }
 
 void Robot::update(Duration dt)
 {
-    for (auto &joint : joints_)
+    for (auto& joint : joints_)
     {
+        // Read the command and actual state before calculating the next control output.
+        const JointState actual_state = joint.state();
+        const JointCommand command = joint.command();
+
+        // The controller converts the desired and actual state into an acceleration request.
         const AngularAcceleration requested_acceleration =
             controller_.calculate(
-                joint.targetPosition(),
-                joint.position(),
-                joint.velocity());
+                command,
+                actual_state);
+
+        // Validate the controller's request before applying it to the joint.
         if (safety_layer_.validate(joint, requested_acceleration))
         {
             joint.setAcceleration(requested_acceleration);
         }
         else
         {
+            // Reject an unsafe request by applying zero acceleration instead.
             joint.setAcceleration(AngularAcceleration{0.0});
         }
 
+        // Advance the joint simulation using the validated acceleration.
         joint.update(dt);
     }
 }

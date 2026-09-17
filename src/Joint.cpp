@@ -1,8 +1,12 @@
 #include "Joint.hpp"
 
-Joint::Joint(Angle min_position, Angle max_position, AngularVelocity max_velocity, AngularAcceleration max_acceleration)
+Joint::Joint(
+    Angle min_position,
+    Angle max_position,
+    AngularVelocity max_velocity,
+    AngularAcceleration max_acceleration)
     : position_{Angle{0.0}},
-      target_position_{Angle{0.0}},
+      command_{JointCommand{Angle{0.0}}},
       velocity_{AngularVelocity{0.0}},
       applied_acceleration_{AngularAcceleration{0.0}},
       torque_{0.0},
@@ -27,18 +31,19 @@ bool Joint::initializePosition(Angle position)
 
 void Joint::setTargetPosition(Angle target)
 {
-    target_position_ = target;
+    command_.target_position = target;
 }
 
 Angle Joint::targetPosition() const
 {
-    return target_position_;
+    return command_.target_position;
 }
 
 bool Joint::setAcceleration(AngularAcceleration acceleration)
 {
-    if (applied_acceleration_.degreesPerSecondSquared() > max_acceleration_.degreesPerSecondSquared() ||
-        applied_acceleration_.degreesPerSecondSquared() < -max_acceleration_.degreesPerSecondSquared())
+    // Reject acceleration commands that exceed the joint's configured limit.
+    if (acceleration.degreesPerSecondSquared() > max_acceleration_.degreesPerSecondSquared() ||
+        acceleration.degreesPerSecondSquared() < -max_acceleration_.degreesPerSecondSquared())
     {
         return false;
     }
@@ -48,19 +53,23 @@ bool Joint::setAcceleration(AngularAcceleration acceleration)
     return true;
 }
 
-void Joint::update(const Duration &dt)
+void Joint::update(const Duration& dt)
 {
+    // Apply acceleration first, then use the new velocity to update position.
     const double new_velocity =
-        velocity_.degreesPerSecond() + applied_acceleration_.degreesPerSecondSquared() * dt.seconds();
+        velocity_.degreesPerSecond() +
+        applied_acceleration_.degreesPerSecondSquared() * dt.seconds();
 
     const double max_velocity = max_velocity_.degreesPerSecond();
 
     double limited_velocity = new_velocity;
 
+    // Keep the simulated velocity within the joint's configured limit.
     if (limited_velocity > max_velocity)
     {
         limited_velocity = max_velocity;
     }
+
     if (limited_velocity < -max_velocity)
     {
         limited_velocity = -max_velocity;
@@ -72,6 +81,7 @@ void Joint::update(const Duration &dt)
         position_.degrees() +
         velocity_.degreesPerSecond() * dt.seconds();
 
+    // Stop the joint if the simulated position reaches a physical limit.
     if (new_position < min_position_.degrees())
     {
         position_ = min_position_;
@@ -109,4 +119,16 @@ AngularAcceleration Joint::maxAcceleration() const
 double Joint::torque() const
 {
     return torque_;
+}
+
+JointState Joint::state() const
+{
+    return JointState{
+        position_,
+        velocity_};
+}
+
+JointCommand Joint::command() const
+{
+    return command_;
 }

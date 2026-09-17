@@ -6,6 +6,7 @@ int main()
 {
     Robot robot;
 
+    // The simulation advances in 1 ms steps, equivalent to a 1 kHz update rate.
     const Duration dt{0.001};
     Duration simulation_time{0.0};
 
@@ -18,6 +19,7 @@ int main()
 
         simulation_time += dt;
 
+        // Print diagnostics every 100 simulation steps to avoid excessive console output.
         if ((i + 1) % 100 == 0)
         {
             std::cout << "\nTime: "

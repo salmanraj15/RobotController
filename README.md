@@ -110,7 +110,7 @@ Commands outside the permitted range are rejected where applicable.
 
 The Joint owns its physical limits. Higher-level components such as the controller may request an acceleration, while the SafetyLayer validates that request against the limits owned by the Joint.
 
-The SafetyLayer currently validates acceleration commands and rejects requests that exceed the Joint's configured acceleration limit. It has been implemented but is not yet integrated into the robot's main control/update path.
+The SafetyLayer validates acceleration commands and rejects requests that exceed the Joint's configured acceleration limit. It is integrated into the robot's main control/update path.
 
 The Joint remains responsible for enforcing limits on its physical state during simulation.
 
@@ -134,7 +134,7 @@ acceleration command =
 
 The controller generates a requested acceleration command. The SafetyLayer provides a separate validation step that checks the requested command against the Joint's configured acceleration limit.
 
-The SafetyLayer is currently implemented but has not yet been connected to the robot's main control/update path.
+The SafetyLayer is integrated into the robot's main control/update path as a separate validation step.
 
 The PD controller therefore provides both:
 
@@ -295,11 +295,12 @@ The development process emphasizes:
 * [x] Controller acceleration limiting
 * [x] SafetyLayer acceleration validation
 * [x] Integrate SafetyLayer into robot control path
+* [x] Separate commanded state from actual state
+
 
 ### Next
 
-* [ ] Separate commanded state from actual state
-* [ ] Improve controller architecture
+* [x] Improve controller architecture
 * [ ] Motor interface abstraction
 * [ ] Robot simulator
 * [ ] Fixed-period control loop
