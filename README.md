@@ -48,6 +48,7 @@ The project currently contains:
 * A simulated motor implementation
 * A RobotSimulator responsible for advancing physical state
 * A basic simulation update loop at a 1 ms timestep
+* A dedicated control thread using `std::jthread`
 * C++20 build configuration using CMake and Ninja
 
 ### Current Simulation Model
@@ -79,8 +80,7 @@ The control loop uses `std::chrono::steady_clock` together with
 
 Testing on Windows showed an important limitation of this approach.
 
-A 2.5 second simulation was executed with 2,500 control cycles. The
-measured results were:
+A 2.5 second simulation was executed with 2,500 control cycles. One representative run on Windows produced:
 
 - Real execution time: 2.50122 s
 - Simulated time: 2.5 s
@@ -125,6 +125,22 @@ demonstrates an important distinction between:
 
 The current implementation demonstrates that the application workload
 is fast enough for a 1 ms budget, with a measured maximum execution time of only 0.0978 ms. However, the Windows execution environment introduces scheduling jitter that prevents deterministic 1 ms cycle timing.
+
+### Threading and `std::jthread`
+
+The control loop uses C++20 `std::jthread` to execute control cycles on a dedicated thread.
+
+The thread receives a `std::stop_token` and checks for a stop request between control cycles, allowing cooperative cancellation.
+
+The control loop waits for the worker thread to finish before returning from `run()`.
+
+This introduces:
+
+- `std::jthread`
+- `std::stop_token`
+- Cooperative thread cancellation
+- Thread ownership and lifetime management
+- `join()` and synchronization of thread completion
 
 ## Strong Types
 
@@ -306,34 +322,36 @@ is rejected.
 
 ```text
 RobotController/
-
 ├── CMakeLists.txt
 ├── README.md
 ├── .gitignore
+│
 ├── include/
 │   ├── Angle.hpp
-│   ├── Duration.hpp
-│   ├── AngularVelocity.hpp
 │   ├── AngularAcceleration.hpp
-│   ├── JointTypes.hpp
+│   ├── AngularVelocity.hpp
+│   ├── ControlLoop.hpp
+│   ├── Duration.hpp
 │   ├── Joint.hpp
-│   ├── PDControllerConfig.hpp
-│   ├── PDController.hpp
-│   ├── SafetyLayer.hpp
+│   ├── JointTypes.hpp
 │   ├── MotorInterface.hpp
-│   ├── SimulatedMotor.hpp
+│   ├── PDController.hpp
+│   ├── PDControllerConfig.hpp
+│   ├── Robot.hpp
 │   ├── RobotSimulator.hpp
-│   └── Robot.hpp
+│   ├── SafetyLayer.hpp
+│   └── SimulatedMotor.hpp
 │
 └── src/
+    ├── Angle.cpp
+    ├── ControlLoop.cpp
     ├── Joint.cpp
-    ├── Robot.cpp
+    ├── main.cpp
     ├── PDController.cpp
-    ├── SafetyLayer.cpp
-    ├── SimulatedMotor.cpp
+    ├── Robot.cpp
     ├── RobotSimulator.cpp
-    └── main.cpp
-```
+    ├── SafetyLayer.cpp
+    └── SimulatedMotor.cpp
 
 ## Building
 
@@ -406,13 +424,13 @@ The development process emphasizes:
 * [x] Motor interface abstraction
 * [x] Robot simulator
 * [x] Fixed-period control loop
+* [x] Threading and `std::jthread`
 
 
 ### Next
 
 * [ ] Deterministic 1 kHz control loop
 * [ ] Real-time-oriented data structures
-* [ ] Threading and `std::jthread`
 * [ ] Atomics and synchronization
 * [ ] Logging and diagnostics
 * [ ] Unit tests

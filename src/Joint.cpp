@@ -7,7 +7,7 @@ Joint::Joint(
     AngularAcceleration max_acceleration,
     MotorInterface &motor)
     : position_{Angle{0.0}},
-      command_{JointCommand{Angle{0.0}}},
+      command_{},
       velocity_{AngularVelocity{0.0}},
       torque_{0.0},
       min_position_{min_position},
@@ -40,14 +40,18 @@ Angle Joint::targetPosition() const
     return command_.target_position;
 }
 
-bool Joint::setAcceleration(AngularAcceleration acceleration)
+bool Joint::setAcceleration(
+    AngularAcceleration acceleration) noexcept
 {
-    // Reject acceleration commands that exceed the joint's configured limit.
-    if (acceleration.degreesPerSecondSquared() > max_acceleration_.degreesPerSecondSquared() ||
-        acceleration.degreesPerSecondSquared() < -max_acceleration_.degreesPerSecondSquared())
+    // Reject commands that exceed the joint's configured limit.
+    if (acceleration.degreesPerSecondSquared() >
+            max_acceleration_.degreesPerSecondSquared() ||
+        acceleration.degreesPerSecondSquared() <
+            -max_acceleration_.degreesPerSecondSquared())
     {
         return false;
     }
+
     motor_.setAcceleration(acceleration);
 
     return true;
@@ -99,15 +103,14 @@ double Joint::torque() const
     return torque_;
 }
 
-JointState Joint::state() const
+JointState Joint::state() const noexcept
 {
     return JointState{
         position_,
         velocity_};
 }
 
-JointCommand Joint::command() const
+JointCommand Joint::command() const noexcept
 {
     return command_;
 }
-

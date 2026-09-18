@@ -8,13 +8,12 @@ class PDController
 {
 public:
     // Creates a controller from its configuration.
-    PDController(const PDControllerConfig& config);
+    PDController(const PDControllerConfig &config);
 
-    // Calculates an acceleration command from the desired
-    // joint command and the joint's current state.
+    // Calculates the acceleration needed to move toward the target.
     AngularAcceleration calculate(
-        const JointCommand& command,
-        const JointState& actual_state) const;
+        const JointCommand &command,
+        const JointState &actual_state) const noexcept;
 
 private:
     // Controls how strongly the controller responds to position error.

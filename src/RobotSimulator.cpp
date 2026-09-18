@@ -1,6 +1,6 @@
 #include "RobotSimulator.hpp"
 
-RobotSimulator::RobotSimulator(std::array<Joint, 6> &joints)
+RobotSimulator::RobotSimulator(std::span<Joint> joints)
     : joints_{joints}
 {
 }

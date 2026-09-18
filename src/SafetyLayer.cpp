@@ -2,7 +2,7 @@
 
 bool SafetyLayer::validate(
     const Joint& joint,
-    AngularAcceleration requested) const
+    AngularAcceleration requested) const noexcept
 {
     // Get the maximum acceleration allowed by the joint.
     const double limit =

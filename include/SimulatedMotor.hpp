@@ -8,10 +8,11 @@ class SimulatedMotor : public MotorInterface
 {
 public:
     // Stores the latest acceleration command sent to the motor.
-    void setAcceleration(AngularAcceleration acceleration) override;
+    void setAcceleration(
+        AngularAcceleration acceleration) noexcept override;
 
     // Returns the latest acceleration command.
-    AngularAcceleration acceleration() const override;
+    AngularAcceleration acceleration() const noexcept override;
 
     // Advances the motor simulation by the given timestep.
     void update(const Duration &dt);

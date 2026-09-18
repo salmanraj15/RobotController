@@ -1,7 +1,22 @@
 #include "Robot.hpp"
-#include "SafetyLayer.hpp"
 
 #include <iostream>
+
+RobotState Robot::state() const noexcept
+{
+    RobotState state{};
+
+    std::size_t index = 0;
+
+    // Copy each joint into the state snapshot.
+    for (const auto& joint : joints_)
+    {
+        state[index] = joint.state();
+        ++index;
+    }
+
+    return state;
+}
 
 void Robot::printState() const
 {
@@ -84,8 +99,8 @@ void Robot::update(Duration dt)
             // Reject an unsafe request by applying zero acceleration instead.
             joint.setAcceleration(AngularAcceleration{0.0});
         }
-
-        // Advance the physical simulation after all motor commands are prepared.
-        simulator_.update(dt);
     }
+
+    // Advance the physical simulation after all motor commands are prepared.
+    simulator_.update(dt);
 }

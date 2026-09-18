@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <span>
 
 #include "Joint.hpp"
 #include "PDController.hpp"
@@ -13,6 +14,9 @@
 class Robot
 {
 public:
+    // Returns a snapshot of the current state of all joints.
+    RobotState state() const noexcept;
+
     // Prints the current state of all joints.
     void printState() const;
 
@@ -32,10 +36,10 @@ public:
 
 private:
     // The six simulated motors that drive the robot's joints.
-    std::array<SimulatedMotor, 6> motors_{};
+    std::array<SimulatedMotor, joint_count> motors_{};
 
     // The six joints that make up the robot.
-    std::array<Joint, 6>
+    std::array<Joint, joint_count>
         joints_{
             Joint{Angle{-180.0}, Angle{180.0}, AngularVelocity{60.0}, AngularAcceleration{30.0}, motors_[0]},
             Joint{Angle{-90.0}, Angle{90.0}, AngularVelocity{60.0}, AngularAcceleration{30.0}, motors_[1]},
@@ -45,7 +49,8 @@ private:
             Joint{Angle{-180.0}, Angle{180.0}, AngularVelocity{60.0}, AngularAcceleration{30.0}, motors_[5]}};
 
     // Advances the physical simulation of the robot.
-    RobotSimulator simulator_{joints_};;
+    RobotSimulator simulator_{joints_};
+    ;
 
     // Calculates acceleration commands for the joints.
     PDController controller_{

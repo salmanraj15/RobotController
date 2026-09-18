@@ -19,7 +19,9 @@ public:
 
     bool initializePosition(Angle position);
     void setTargetPosition(Angle target);
-    bool setAcceleration(AngularAcceleration acceleration);
+
+    // Applies an acceleration command if it is within the joint's limit.
+    bool setAcceleration(AngularAcceleration acceleration) noexcept;
 
     // Returns the joint's current position.
     Angle position() const;
@@ -31,10 +33,10 @@ public:
     AngularVelocity velocity() const;
 
     // Returns the current physical state of the joint.
-    JointState state() const;
+    JointState state() const noexcept;
 
     // Returns the current command for the joint.
-    JointCommand command() const;
+    JointCommand command() const noexcept;
 
     // Returns the maximum acceleration allowed for this joint.
     AngularAcceleration maxAcceleration() const;
