@@ -20,7 +20,6 @@ public:
     bool initializePosition(Angle position);
     void setTargetPosition(Angle target);
     bool setAcceleration(AngularAcceleration acceleration);
-    void update(const Duration &dt);
 
     // Returns the joint's current position.
     Angle position() const;
