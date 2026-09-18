@@ -72,6 +72,60 @@ The simulator also enforces each joint's configured velocity and position limits
 
 The `RobotSimulator` is responsible for advancing the simulated physical state. The `Joint` stores its physical state and exposes the limits and actuator command needed by the simulator.
 
+## Timing and Windows Scheduling
+
+The control loop uses `std::chrono::steady_clock` together with
+`std::this_thread::sleep_until()` to schedule a nominal 1 ms control period.
+
+Testing on Windows showed an important limitation of this approach.
+
+A 2.5 second simulation was executed with 2,500 control cycles. The
+measured results were:
+
+- Real execution time: 2.50122 s
+- Simulated time: 2.5 s
+- Average cycle period: 1.00089 ms
+- Minimum cycle period: 0.0014 ms
+- Maximum cycle period: 28.6843 ms
+- Missed 1 ms cycle deadlines: 160
+- Maximum control-loop execution time: 0.0978 ms
+
+The results demonstrate that the controller and simulator execute well
+within the 1 ms budget, with the measured maximum execution time below
+0.1 ms. However, the Windows scheduling environment does not provide deterministic thread wake-up timing at the 1 ms resolution required by a hard real-time control loop.
+
+When the thread wakes later than its scheduled time, `sleep_until()` can return immediately on the following iteration because the next scheduled time is already in the past. This explains the combination of long cycle periods and very short catch-up periods.
+
+### Lesson learned
+
+A nominal 1 kHz loop is not the same as a deterministic 1 kHz real-time
+loop.
+
+Using `sleep_until()` provides a useful absolute scheduling mechanism,
+and the average period can be very close to 1 ms. However, normal Windows scheduling can introduce significant timing jitter and missed 1 ms deadlines.
+
+The missed deadlines are caused by cycle-start timing jitter rather than the controller or simulator exceeding the 1 ms execution budget.
+
+For this reason, the current implementation should be considered a
+**1 kHz scheduled simulation loop**, not a hard real-time control loop.
+
+Achieving deterministic 1 ms behavior requires additional real-time
+considerations beyond the scheduling mechanism itself, including thread
+scheduling, CPU isolation/affinity, synchronization, memory allocation,
+I/O behavior, and ultimately an operating-system/environment capable of
+providing appropriate real-time guarantees.
+
+This experiment is intentionally kept as part of the project because it
+demonstrates an important distinction between:
+
+- **Execution time** — how long the controller and simulator take to run.
+- **Cycle period** — how frequently control cycles actually start.
+- **Deadline behavior** — whether each cycle can reliably meet its 1 ms
+  timing requirement.
+
+The current implementation demonstrates that the application workload
+is fast enough for a 1 ms budget, with a measured maximum execution time of only 0.0978 ms. However, the Windows execution environment introduces scheduling jitter that prevents deterministic 1 ms cycle timing.
+
 ## Strong Types
 
 Physical quantities are represented using separate C++ types rather than passing raw `double` values everywhere.
@@ -351,11 +405,12 @@ The development process emphasizes:
 * [x] Improve controller architecture
 * [x] Motor interface abstraction
 * [x] Robot simulator
+* [x] Fixed-period control loop
+
 
 ### Next
 
-* [ ] Fixed-period control loop
-* [ ] 1 kHz control loop
+* [ ] Deterministic 1 kHz control loop
 * [ ] Real-time-oriented data structures
 * [ ] Threading and `std::jthread`
 * [ ] Atomics and synchronization
