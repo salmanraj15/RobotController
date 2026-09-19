@@ -62,4 +62,5 @@ private:
     double max_jitter_{0.0};
     double max_backlog_{0.0};
     int backlog_cycles_{0};
+    int deadline_misses_{0};
 };

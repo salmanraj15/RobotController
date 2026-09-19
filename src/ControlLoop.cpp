@@ -17,6 +17,8 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
 
     const auto cycle_start = std::chrono::steady_clock::now();
 
+    const auto cycle_deadline = next_cycle_ + control_period_;
+
     // Check whether this cycle started later than scheduled.
     if (cycle_start > next_cycle_)
     {
@@ -106,6 +108,11 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
         max_execution_time_ = execution_ms;
     }
 
+    if (cycle_end > cycle_deadline)
+    {
+        ++deadline_misses_;
+    }
+
     ++measured_cycles_;
     ++completed_cycles_;
 
@@ -165,6 +172,10 @@ void ControlLoop::printTimingStatistics() const
               << delayed_cycles_
               << '\n';
 
+    std::cout << "Deadline misses: "
+              << deadline_misses_
+              << '\n';
+              
     std::cout << "Maximum jitter: "
               << max_jitter_
               << " ms\n";

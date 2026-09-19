@@ -104,30 +104,37 @@ The `RobotSimulator` is responsible for advancing the simulated physical state. 
 
 ## Timing and Windows Scheduling
 
-The control loop uses `std::chrono::steady_clock` together with
-`std::this_thread::sleep_until()` to schedule a nominal 1 ms control period.
+The control loop uses `std::chrono::steady_clock` together with `std::this_thread::sleep_until()` to schedule a nominal 1 ms control period.
 
 Testing on Windows showed an important limitation of this approach.
 
 A 2.5 second simulation was executed with 2,500 control cycles. One representative run on Windows produced:
 
-- Real execution time: 2.5143 s
+- Real execution time: 2.55355 s
 - Simulated time: 2.5 s
-- Average cycle period: 1.00489 ms
-- Minimum cycle period: 0.0007 ms
-- Maximum cycle period: 28.6202 ms
-- Maximum control-loop execution time: 0.0827 ms
-- Delayed cycles: 2343
-- Maximum scheduling jitter: 27.5684 ms
-- Maximum schedule backlog: 27.5684 ms
-- Cycles with at least 1 ms backlog: 2187
+- Average cycle period: 1.00035 ms
+- Minimum cycle period: 0.0008 ms
+- Maximum cycle period: 31.2901 ms
+- Maximum control-loop execution time: 0.1533 ms
+- Deadline misses: 2185
+- Delayed cycles: 2340
+- Maximum scheduling jitter: 30.0563 ms
+- Maximum schedule backlog: 30.0563 ms
+- Cycles with at least 1 ms backlog: 2185
 
 Note: These measurements are representative Windows runs and will vary between executions.
 
-The results demonstrate that the controller and simulator execute well within the 1 ms budget, with the measured maximum execution time below 0.1 ms. However, the Windows scheduling environment introduces significant timing variation at the 1 ms resolution required by a hard real-time control loop.
+The results demonstrate that the controller and simulator execute well within the 1 ms budget, with the measured maximum execution time below 0.2 ms.
+However, the Windows scheduling environment introduces significant timing variation at the 1 ms resolution required by a hard real-time control loop.
 
-When the thread wakes later than its scheduled time, `sleep_until()` can return immediately on subsequent iterations because the next scheduled time is already in the past. This produces the combination of long cycle
-periods and very short catch-up periods.
+A delayed cycle does not necessarily mean that the control work itself exceeded its deadline. A cycle can start late and still complete before its one-millisecond deadline.
+
+The control loop therefore also measures deadline misses. A deadline miss is recorded when a cycle finishes after its scheduled start time plus the 1 ms control period.
+
+This separates scheduling delay from control execution time and provides a clearer measurement of whether the control cycle completed within its allowed time window.
+
+When the thread wakes later than its scheduled time, `sleep_until()` can return immediately on subsequent iterations because the next scheduled time is already
+in the past. This produces the combination of long cycle periods and very short catch-up periods.
 
 The control loop intentionally executes every requested cycle rather than skipping delayed cycles. The simulation timestep remains fixed at 1 ms, independent of wall-clock scheduling jitter.
 
@@ -487,7 +494,7 @@ The development process emphasizes:
 * [x] Fixed-period control loop
 * [x] Threading and `std::jthread`
 * [x] 1 kHz timing analysis and scheduler measurements
-* [x] Atomic counters and mutex-based synchronization
+* [x] Atomic counterfs and mutex-based synchronization
 
 ### Next
 
