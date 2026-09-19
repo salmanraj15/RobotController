@@ -185,8 +185,7 @@ This introduces:
 
 ## Thread Synchronization
 
-The control loop and monitoring code run on separate threads, so shared data
-requires explicit synchronization.
+The control loop and monitoring code run on separate threads, so shared data requires explicit synchronization.
 
 A completed-cycle counter is stored as:
 
@@ -196,17 +195,16 @@ std::atomic<int>
 
 This allows the monitoring thread to read the counter while the control thread updates it without a data race.
 
-Robot state is handled differently because it contains multiple related values. The control loop publishes complete `RobotState` snapshots using two state buffers and an atomic published-buffer index.
+Robot state contains multiple related values, so it is protected as a complete snapshot using a mutex.
 
-The reader marks the selected buffer as in use while copying the snapshot. The control thread checks the reader count before reusing a buffer.
+The control loop publishes the latest `RobotState` while holding the mutex, and the monitoring thread copies the snapshot while holding the same mutex.
 
 This separates two synchronization problems:
 
 - Atomic values for individual pieces of shared state
-- Snapshot publication for related state that must be read consistently
+- Mutex-protected snapshots for related state that must be read consistently
 
-The current snapshot mechanism is an experimental real-time-oriented design. It still needs further testing before being considered a production-quality
-lock-free data structure.
+The mutex-based snapshot is currently used as a  correctness baseline. A lock-free snapshot design can be evaluated later and compared against this implementation.
 
 ## Strong Types
 
@@ -489,7 +487,7 @@ The development process emphasizes:
 * [x] Fixed-period control loop
 * [x] Threading and `std::jthread`
 * [x] 1 kHz timing analysis and scheduler measurements
-* [x] Atomics and synchronization
+* [x] Atomic counters and mutex-based synchronization
 
 ### Next
 

@@ -84,22 +84,11 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
         }
     }
 
-    // Wait until the next buffer is no longer being read.
-    while (state_readers_[write_state_].load(
-               std::memory_order_acquire) != 0)
+    // Publish one complete snapshot.
     {
-        std::this_thread::yield();
+        std::lock_guard lock{state_mutex_};
+        state_ = robot_.state();
     }
-
-    // Write the new snapshot into the free buffer.
-    state_buffers_[write_state_] = robot_.state();
-
-    // Publish the completed snapshot.
-    published_state_.store(
-        write_state_,
-        std::memory_order_release);
-
-    write_state_ = 1 - write_state_;
 
     // Run the actual control work.
     robot_.update(dt_);
@@ -189,18 +178,10 @@ void ControlLoop::printTimingStatistics() const
               << '\n';
 }
 
-RobotState ControlLoop::state() const noexcept
+RobotState ControlLoop::state() const
 {
-    const int index =
-        published_state_.load(std::memory_order_acquire);
-
-    state_readers_[index].fetch_add(1, std::memory_order_acquire);
-
-    const RobotState state = state_buffers_[index];
-
-    state_readers_[index].fetch_sub(1, std::memory_order_release);
-
-    return state;
+    std::lock_guard lock{state_mutex_};
+    return state_;
 }
 
 void ControlLoop::printSnapshot(const RobotState &state) const

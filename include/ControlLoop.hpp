@@ -3,7 +3,7 @@
 #include <chrono>
 #include <thread>
 #include <atomic>
-#include <array>
+#include <mutex>
 
 #include "Duration.hpp"
 #include "Robot.hpp"
@@ -22,7 +22,7 @@ public:
     void printTimingStatistics() const;
 
     // Returns the latest state snapshot.
-    RobotState state() const noexcept;
+    RobotState state() const;
 
     // Prints a supplied state snapshot.
     void printSnapshot(const RobotState &state) const;
@@ -36,17 +36,8 @@ private:
 
     Robot &robot_;
 
-    // Holds the two snapshot buffers.
-    std::array<RobotState, 2> state_buffers_{};
-
-    // Tracks which snapshot readers should use.
-    std::atomic<int> published_state_{0};
-
-    // Tracks whether a reader is using each snapshot buffer.
-    mutable std::array<std::atomic<int>, 2> state_readers_{};
-
-    // The control thread writes to this buffer next.
-    int write_state_{1};
+    mutable std::mutex state_mutex_;
+    RobotState state_{};
 
     // The control loop runs every 1 ms.
     static constexpr auto control_period_ =
