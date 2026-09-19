@@ -28,6 +28,35 @@ Simulator
 
 The project is being developed incrementally, with each stage introducing relevant C++ concepts and robotics/control concepts.
 
+## Cross-Platform Requirement
+
+The application is intended to build and run on multiple operating systems,
+including:
+
+- Windows
+- Linux
+
+The core robot, controller, simulator, safety, and motor-interface code should
+remain platform-independent and use standard C++20 facilities where possible.
+
+Platform-specific behavior should be isolated behind dedicated abstractions
+rather than being introduced directly into the core control logic.
+
+This is especially important for real-time timing. The application uses
+cross-platform C++ timing and threading facilities such as `std::chrono`,
+`std::jthread`, and `std::this_thread::sleep_until()`, but the timing guarantees
+provided by the underlying operating system may differ.
+
+The long-term architecture should therefore separate:
+
+- Platform-independent control logic
+- Portable timing and threading interfaces
+- Operating-system-specific real-time mechanisms, where required
+
+The goal is to keep the application portable while allowing platform-specific
+real-time optimizations to be introduced without coupling the core robot
+controller to a particular operating system.
+
 ## Current Status
 
 The project currently contains:
@@ -430,6 +459,7 @@ The development process emphasizes:
 ### Next
 
 * [ ] Deterministic 1 kHz control loop
+* [ ] Linux build and runtime verification
 * [ ] Real-time-oriented data structures
 * [ ] Atomics and synchronization
 * [ ] Logging and diagnostics
