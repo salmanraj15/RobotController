@@ -2,7 +2,6 @@
 
 #include <array>
 #include <cstddef>
-#include <span>
 
 #include "Joint.hpp"
 #include "PDController.hpp"
@@ -21,15 +20,13 @@ public:
     void printState() const;
 
     // Initializes a joint at the given position.
-    bool initializeJointPosition(std::size_t index, Angle position);
+    bool initializeJointPosition(JointIndex index, Angle position);
 
     // Sets the target position for a joint.
-    bool setJointTargetPosition(std::size_t index, Angle target);
+    bool setJointTargetPosition(JointIndex index, Angle target);
 
     // Applies an acceleration command directly to a joint.
-    bool setJointAcceleration(
-        std::size_t index,
-        AngularAcceleration acceleration);
+    bool setJointAcceleration(JointIndex index, AngularAcceleration acceleration);
 
     // Advances the simulation and updates all joints.
     void update(Duration dt);
@@ -50,7 +47,6 @@ private:
 
     // Advances the physical simulation of the robot.
     RobotSimulator simulator_{joints_};
-    ;
 
     // Calculates acceleration commands for the joints.
     PDController controller_{

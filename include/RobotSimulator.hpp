@@ -13,7 +13,7 @@ public:
     explicit RobotSimulator(std::span<Joint> joints);
 
     // Advances the simulation by the given timestep.
-    void update(const Duration& dt);
+    void update(Duration dt);
 
 private:
     // A view of the joints being simulated.

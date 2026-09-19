@@ -122,6 +122,8 @@ A 2.5 second simulation was executed with 2,500 control cycles. One representati
 - Maximum schedule backlog: 27.5684 ms
 - Cycles with at least 1 ms backlog: 2187
 
+Note: These measurements are representative Windows runs and will vary between executions.
+
 The results demonstrate that the controller and simulator execute well within the 1 ms budget, with the measured maximum execution time below 0.1 ms. However, the Windows scheduling environment introduces significant timing variation at the 1 ms resolution required by a hard real-time control loop.
 
 When the thread wakes later than its scheduled time, `sleep_until()` can return immediately on subsequent iterations because the next scheduled time is already in the past. This produces the combination of long cycle
@@ -168,7 +170,9 @@ The control loop uses C++20 `std::jthread` to execute control cycles on a dedica
 
 The thread receives a `std::stop_token` and checks for a stop request between control cycles, allowing cooperative cancellation.
 
-The control loop waits for the worker thread to finish before returning from `run()`.
+The control loop owns the worker thread and uses `std::jthread` to manage its lifetime.
+
+The monitoring side can observe control-loop progress while the worker thread is running.
 
 This introduces:
 
@@ -176,7 +180,33 @@ This introduces:
 - `std::stop_token`
 - Cooperative thread cancellation
 - Thread ownership and lifetime management
-- `join()` and synchronization of thread completion
+- Concurrent access to control-loop information
+- Atomic synchronization
+
+## Thread Synchronization
+
+The control loop and monitoring code run on separate threads, so shared data
+requires explicit synchronization.
+
+A completed-cycle counter is stored as:
+
+```cpp
+std::atomic<int>
+```
+
+This allows the monitoring thread to read the counter while the control thread updates it without a data race.
+
+Robot state is handled differently because it contains multiple related values. The control loop publishes complete `RobotState` snapshots using two state buffers and an atomic published-buffer index.
+
+The reader marks the selected buffer as in use while copying the snapshot. The control thread checks the reader count before reusing a buffer.
+
+This separates two synchronization problems:
+
+- Atomic values for individual pieces of shared state
+- Snapshot publication for related state that must be read consistently
+
+The current snapshot mechanism is an experimental real-time-oriented design. It still needs further testing before being considered a production-quality
+lock-free data structure.
 
 ## Strong Types
 
@@ -327,9 +357,8 @@ A target position can be assigned with:
 
 ```cpp
 robot.setJointTargetPosition(
-    0,
-    Angle{90.0}
-);
+    JointIndex{0},
+    Angle{90.0});
 ```
 
 The robot's controller then calculates an acceleration command using the position error and current joint velocity.
@@ -338,18 +367,16 @@ A manually supplied acceleration command is still available for testing:
 
 ```cpp
 robot.setJointAcceleration(
-    0,
-    AngularAcceleration{30.0}
-);
+    JointIndex{0},
+    AngularAcceleration{30.0});
 ```
 
 A command exceeding the configured joint acceleration limit:
 
 ```cpp
 robot.setJointAcceleration(
-    0,
-    AngularAcceleration{100.0}
-);
+    JointIndex{0},
+    AngularAcceleration{100.0});
 ```
 
 is rejected.
@@ -462,14 +489,14 @@ The development process emphasizes:
 * [x] Fixed-period control loop
 * [x] Threading and `std::jthread`
 * [x] 1 kHz timing analysis and scheduler measurements
-
+* [x] Atomics and synchronization
 
 ### Next
 
 * [ ] Deterministic 1 kHz control loop
 * [ ] Linux build and runtime verification
 * [ ] Real-time-oriented data structures
-* [ ] Atomics and synchronization
+* [ ] Evaluate lock-free snapshot design
 * [ ] Logging and diagnostics
 * [ ] Unit tests
 * [ ] Sanitizers

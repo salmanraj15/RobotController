@@ -1,18 +1,15 @@
 #include "Robot.hpp"
 
 #include <iostream>
+#include <span>
 
 RobotState Robot::state() const noexcept
 {
     RobotState state{};
 
-    std::size_t index = 0;
-
-    // Copy each joint into the state snapshot.
-    for (const auto& joint : joints_)
+    for (std::size_t i = 0; i < joints_.size(); ++i)
     {
-        state[index] = joint.state();
-        ++index;
+        state[i] = joints_[i].state();
     }
 
     return state;
@@ -20,59 +17,54 @@ RobotState Robot::state() const noexcept
 
 void Robot::printState() const
 {
-    std::cout << "Robot has " << joints_.size() << " joints";
+    const auto joints = std::span<const Joint>{joints_};
 
-    for (std::size_t i = 0; i < joints_.size(); i++)
+    std::cout << "Robot has " << joints.size() << " joints";
+
+    for (std::size_t i = 0; i < joints.size(); ++i)
     {
+        // Print the current state without modifying the joints.
         std::cout << "\n\nJoint " << i + 1 << ":\n";
 
         std::cout << "Position: "
-                  << joints_[i].position().degrees()
+                  << joints[i].position().degrees()
                   << " degrees";
 
         std::cout << "\nTarget: "
-                  << joints_[i].targetPosition().degrees()
+                  << joints[i].targetPosition().degrees()
                   << " degrees";
 
         std::cout << "\nVelocity: "
-                  << joints_[i].velocity().degreesPerSecond();
+                  << joints[i].velocity().degreesPerSecond();
 
         std::cout << "\nTorque: "
-                  << joints_[i].torque();
+                  << joints[i].torque();
     }
 }
 
-bool Robot::initializeJointPosition(std::size_t index, Angle position)
+bool Robot::initializeJointPosition(JointIndex index, Angle position)
 {
-    if (index >= joints_.size())
-    {
+    if (index.value >= joints_.size())
         return false;
-    }
 
-    return joints_[index].initializePosition(position);
+    return joints_[index.value].initializePosition(position);
 }
 
-bool Robot::setJointTargetPosition(std::size_t index, Angle target)
+bool Robot::setJointTargetPosition(JointIndex index, Angle target)
 {
-    if (index >= joints_.size())
-    {
+    if (index.value >= joints_.size())
         return false;
-    }
 
-    joints_[index].setTargetPosition(target);
+    joints_[index.value].setTargetPosition(target);
     return true;
 }
 
-bool Robot::setJointAcceleration(
-    std::size_t index,
-    AngularAcceleration acceleration)
+bool Robot::setJointAcceleration(JointIndex index, AngularAcceleration acceleration)
 {
-    if (index >= joints_.size())
-    {
+    if (index.value >= joints_.size())
         return false;
-    }
 
-    return joints_[index].setAcceleration(acceleration);
+    return joints_[index.value].setAcceleration(acceleration);
 }
 
 void Robot::update(Duration dt)

@@ -5,7 +5,7 @@ RobotSimulator::RobotSimulator(std::span<Joint> joints)
 {
 }
 
-void RobotSimulator::update(const Duration& dt)
+void RobotSimulator::update(Duration dt)
 {
     for (auto& joint : joints_)
     {

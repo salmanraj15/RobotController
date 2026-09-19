@@ -3,14 +3,15 @@
 
 #include <chrono>
 #include <iostream>
+#include <thread>
 
 int main()
 {
     Robot robot;
     ControlLoop control_loop{robot};
 
-    robot.initializeJointPosition(0, Angle{0.0});
-    robot.setJointTargetPosition(0, Angle{90.0});
+    robot.initializeJointPosition(JointIndex{0}, Angle{0.0});
+    robot.setJointTargetPosition(JointIndex{0}, Angle{90.0});
 
     constexpr int cycle_count = 2500;
 
@@ -18,7 +19,33 @@ int main()
 
     // Start the control thread.
     control_loop.run(cycle_count);
+
+    while (control_loop.completedCycles() < cycle_count)
+    {
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds{100});
+
+        std::cout << "Completed cycles: "
+                  << control_loop.completedCycles()
+                  << '\n';
+
+        // Read a complete robot snapshot while the control loop is running.
+        const RobotState state = control_loop.state();
+
+        std::cout << "Joint 1: "
+                  << state[0].position.degrees()
+                  << " degrees\n";
+    }
+
+    const RobotState state = control_loop.state();
+
+    control_loop.printSnapshot(state);
+
     control_loop.printTimingStatistics();
+
+    std::cout << "Completed cycles: "
+              << control_loop.completedCycles()
+              << '\n';
 
     const auto end = std::chrono::steady_clock::now();
 

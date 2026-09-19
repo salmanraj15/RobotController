@@ -12,11 +12,12 @@ ControlLoop::ControlLoop(Robot &robot)
 
 std::chrono::duration<double, std::milli> ControlLoop::update()
 {
+    // Wait until the next scheduled cycle.
     std::this_thread::sleep_until(next_cycle_);
 
     const auto cycle_start = std::chrono::steady_clock::now();
 
-    // Measure how far behind the schedule we are.
+    // Check whether this cycle started later than scheduled.
     if (cycle_start > next_cycle_)
     {
         const auto backlog =
@@ -31,8 +32,8 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
         }
     }
 
-    // Measure the time since the previous cycle started.
-    if (completed_cycles_ > 0)
+    // Measure the time between cycle starts.
+    if (measured_cycles_ > 0)
     {
         const auto period =
             std::chrono::duration<double, std::milli>(
@@ -40,7 +41,7 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
 
         const double period_ms = period.count();
 
-        if (completed_cycles_ == 1 || period_ms < min_period_)
+        if (measured_cycles_ == 1 || period_ms < min_period_)
         {
             min_period_ = period_ms;
         }
@@ -55,7 +56,7 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
 
     previous_cycle_ = cycle_start;
 
-    // Measure how far behind the schedule we are.
+    // Record cycles that started behind schedule.
     if (cycle_start > next_cycle_)
     {
         ++delayed_cycles_;
@@ -83,6 +84,23 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
         }
     }
 
+    // Wait until the next buffer is no longer being read.
+    while (state_readers_[write_state_].load(
+               std::memory_order_acquire) != 0)
+    {
+        std::this_thread::yield();
+    }
+
+    // Write the new snapshot into the free buffer.
+    state_buffers_[write_state_] = robot_.state();
+
+    // Publish the completed snapshot.
+    published_state_.store(
+        write_state_,
+        std::memory_order_release);
+
+    write_state_ = 1 - write_state_;
+
     // Run the actual control work.
     robot_.update(dt_);
 
@@ -99,9 +117,10 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
         max_execution_time_ = execution_ms;
     }
 
+    ++measured_cycles_;
     ++completed_cycles_;
 
-    // Keep the absolute schedule so delayed cycles are still executed.
+    // Keep the schedule based on the original cycle times.
     next_cycle_ += control_period_;
 
     return execution_time;
@@ -124,21 +143,18 @@ void ControlLoop::run(int cycle_count)
                 update();
             }
         });
-
-    // Wait for the control thread to finish.
-    thread_.join();
 }
 
 void ControlLoop::printTimingStatistics() const
 {
-    if (completed_cycles_ < 2)
+    if (measured_cycles_ < 2)
     {
         return;
     }
 
     const double average_period =
         total_period_ /
-        static_cast<double>(completed_cycles_ - 1);
+        static_cast<double>(measured_cycles_ - 1);
 
     std::cout << "\nMinimum cycle period: "
               << min_period_
@@ -171,4 +187,30 @@ void ControlLoop::printTimingStatistics() const
     std::cout << "Cycles with >= 1 ms backlog: "
               << backlog_cycles_
               << '\n';
+}
+
+RobotState ControlLoop::state() const noexcept
+{
+    const int index =
+        published_state_.load(std::memory_order_acquire);
+
+    state_readers_[index].fetch_add(1, std::memory_order_acquire);
+
+    const RobotState state = state_buffers_[index];
+
+    state_readers_[index].fetch_sub(1, std::memory_order_release);
+
+    return state;
+}
+
+void ControlLoop::printSnapshot(const RobotState &state) const
+{
+    std::cout << "Snapshot joint 1: "
+              << state[0].position.degrees()
+              << " degrees\n";
+}
+
+int ControlLoop::completedCycles() const noexcept
+{
+    return completed_cycles_.load();
 }

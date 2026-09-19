@@ -8,6 +8,16 @@
 
 inline constexpr std::size_t joint_count = 6;
 
+struct JointIndex
+{
+    std::size_t value{};
+
+    constexpr explicit JointIndex(std::size_t index)
+        : value{index}
+    {
+    }
+};
+
 // Describes what the joint is currently doing.
 struct JointState
 {
