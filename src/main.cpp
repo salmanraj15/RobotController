@@ -18,6 +18,7 @@ int main()
 
     // Start the control thread.
     control_loop.run(cycle_count);
+    control_loop.printTimingStatistics();
 
     const auto end = std::chrono::steady_clock::now();
 
