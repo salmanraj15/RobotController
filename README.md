@@ -110,66 +110,60 @@ Testing on Windows showed an important limitation of this approach.
 
 A 2.5 second simulation was executed with 2,500 control cycles. One representative run on Windows produced:
 
-- Real execution time: 2.55355 s
+- Real execution time: 2.528 s
 - Simulated time: 2.5 s
-- Average cycle period: 1.00035 ms
-- Minimum cycle period: 0.0008 ms
-- Maximum cycle period: 31.2901 ms
-- Maximum control-loop execution time: 0.1533 ms
-- Deadline misses: 2185
-- Delayed cycles: 2340
-- Maximum scheduling jitter: 30.0563 ms
-- Maximum schedule backlog: 30.0563 ms
-- Cycles with at least 1 ms backlog: 2185
+- Average cycle period: 0.999108 ms
+- Minimum cycle period: 0.0009 ms
+- Maximum cycle period: 30.8553 ms
+- Maximum control-loop execution time: 0.2262 ms
+- Delayed cycles: 2181
+- Deadline misses: 2181
+- Maximum scheduling delay: 29.4062 ms
+- Maximum schedule backlog: 29.4062 ms
+- Cycles with at least 1 ms backlog: 2181
+- Minimum deadline margin: -28.4162 ms
 
 Note: These measurements are representative Windows runs and will vary between executions.
 
-The results demonstrate that the controller and simulator execute well within the 1 ms budget, with the measured maximum execution time below 0.2 ms.
-However, the Windows scheduling environment introduces significant timing variation at the 1 ms resolution required by a hard real-time control loop.
+The results demonstrate that the controller and simulator execute well within the 1 ms budget. The measured maximum execution time was 0.2262 ms.
 
-A delayed cycle does not necessarily mean that the control work itself exceeded its deadline. A cycle can start late and still complete before its one-millisecond deadline.
+However, the Windows scheduling environment introduces significant timing variation at the 1 ms resolution required by a deterministic real-time control loop.
+
+A delayed cycle does not necessarily mean that the control work itself exceeded its deadline. A cycle can start late and still complete before its one-millisecond
+deadline.
 
 The control loop therefore also measures deadline misses. A deadline miss is recorded when a cycle finishes after its scheduled start time plus the 1 ms control period.
 
 This separates scheduling delay from control execution time and provides a clearer measurement of whether the control cycle completed within its allowed time window.
 
 When the thread wakes later than its scheduled time, `sleep_until()` can return immediately on subsequent iterations because the next scheduled time is already
-in the past. This produces the combination of long cycle periods and very short catch-up periods.
+in the past. This can produce a long cycle period followed by a very short cycle period.
 
-The control loop intentionally executes every requested cycle rather than skipping delayed cycles. The simulation timestep remains fixed at 1 ms, independent of wall-clock scheduling jitter.
+The control loop intentionally executes every requested cycle rather than skipping delayed cycles. The simulation timestep remains fixed at 1 ms, independent of wall-clock scheduling delay.
 
 ### Lesson learned
 
 A nominal 1 kHz loop is not the same as a deterministic 1 kHz real-time loop.
 
-Using `sleep_until()` provides a useful absolute scheduling mechanism, and the average cycle period can be very close to 1 ms. However, normal Windows thread scheduling can introduce significant timing jitter and delayed cycle starts.
+Using `sleep_until()` provides an absolute scheduling mechanism, and the average cycle period can remain very close to 1 ms. However, normal Windows thread scheduling can introduce significant delays between the scheduled and actual cycle start times.
 
 The measured controller and simulator execution time is well below the 1 ms cycle budget. The timing variation therefore comes primarily from the execution environment rather than the control workload.
 
-For example, a representative run measured:
-
-- Average cycle period: approximately 1.000 ms
-- Maximum cycle period: approximately 27.7 ms
-- Maximum execution time: approximately 0.076 ms
-- Maximum scheduling jitter: approximately 26.6 ms
-
-The large difference between execution time and cycle period demonstrates that a fast control algorithm does not by itself guarantee deterministic real-time behavior.
-
-This experiment is intentionally kept as part of the project because it
-demonstrates an important distinction between:
+This experiment demonstrates the distinction between:
 
 - **Execution time** — how long the controller and simulator take to run.
-- **Cycle period** — the time between actual control-cycle starts.
-- **Scheduling jitter** — variation between the scheduled cycle start and   the actual cycle start.
-- **Delayed cycles** — cycles that begin after their scheduled start.
-- **Deadline behavior** — whether each cycle can reliably meet its 1 ms   timing requirement.
+- **Cycle period** — the time between actual  control-cycle starts.
+- **Scheduling delay** — the difference between the scheduled cycle start and   the actual cycle start.
+- **Delayed cycles** — cycles that begin later than their scheduled start.
+- **Deadline behavior** — whether each cycle finishes within its 1 ms timing   window.
 
 The current implementation should therefore be considered a **1 kHz scheduled simulation loop**, not a hard real-time control loop.
 
-The control loop also maintains an absolute schedule. When Windows delays a cycle significantly, subsequent cycles can start very close together while
-the loop catches up with the intended schedule. This preserves the requirement that every requested control cycle is executed, but it also shows why catch-up behavior must be explicitly considered in a real-time-oriented design.
+The control loop maintains an absolute schedule. If Windows delays a cycle, subsequent cycles can start very close together because the next scheduled time
+may already be in the past. This preserves the requirement that every requested control cycle is executed while keeping the simulation timestep fixed at 1 ms.
 
-Achieving deterministic 1 ms behavior requires additional real-time considerations beyond the scheduling mechanism itself, including thread scheduling, CPU isolation/affinity, synchronization, memory allocation, I/O behavior, and ultimately an operating-system/environment capable of providing appropriate real-time guarantees.
+Achieving deterministic 1 ms behavior requires additional real-time considerations beyond the scheduling mechanism itself, including thread scheduling, CPU affinity, synchronization, memory allocation, I/O behavior,
+and ultimately an operating-system/environment capable of providing appropriate real-time guarantees.
 
 ### Threading and `std::jthread`
 
@@ -494,7 +488,7 @@ The development process emphasizes:
 * [x] Fixed-period control loop
 * [x] Threading and `std::jthread`
 * [x] 1 kHz timing analysis and scheduler measurements
-* [x] Atomic counterfs and mutex-based synchronization
+* [x] Atomic counters and mutex-based synchronization
 
 ### Next
 

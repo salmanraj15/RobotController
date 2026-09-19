@@ -1,9 +1,9 @@
 #pragma once
 
-#include <chrono>
-#include <thread>
 #include <atomic>
+#include <chrono>
 #include <mutex>
+#include <thread>
 
 #include "Duration.hpp"
 #include "Robot.hpp"
@@ -12,27 +12,34 @@
 class ControlLoop
 {
 public:
-    // Creates a control loop for the given robot.
     explicit ControlLoop(Robot &robot);
 
-    // Runs the requested number of control cycles.
     void run(int cycle_count);
 
-    // Returns the measured timing statistics.
     void printTimingStatistics() const;
 
-    // Returns the latest state snapshot.
     RobotState state() const;
 
-    // Prints a supplied state snapshot.
     void printSnapshot(const RobotState &state) const;
 
-    // Returns how many cycles have completed.
     int completedCycles() const noexcept;
 
 private:
-    // Runs one scheduled control cycle.
+    struct CycleTiming
+    {
+        std::chrono::steady_clock::time_point scheduled_start;
+        std::chrono::steady_clock::time_point actual_start;
+        std::chrono::steady_clock::time_point deadline;
+        std::chrono::steady_clock::time_point actual_end;
+    };
+
     std::chrono::duration<double, std::milli> update();
+
+    std::chrono::steady_clock::time_point
+    current_deadline() const noexcept;
+
+    bool isBehindSchedule(
+        std::chrono::steady_clock::time_point now) const noexcept;
 
     Robot &robot_;
 
@@ -55,11 +62,14 @@ private:
     double total_period_{0.0};
     double max_execution_time_{0.0};
 
+    double max_scheduling_delay_{0.0};
+    double min_deadline_margin_{0.0};
+
     std::atomic<int> completed_cycles_{0};
+
     int measured_cycles_{0};
     int delayed_cycles_{0};
 
-    double max_jitter_{0.0};
     double max_backlog_{0.0};
     int backlog_cycles_{0};
     int deadline_misses_{0};

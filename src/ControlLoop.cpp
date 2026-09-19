@@ -15,24 +15,21 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
     // Wait until the next scheduled cycle.
     std::this_thread::sleep_until(next_cycle_);
 
-    const auto cycle_start = std::chrono::steady_clock::now();
+    const auto cycle_start =
+        std::chrono::steady_clock::now();
 
-    const auto cycle_deadline = next_cycle_ + control_period_;
+    const auto scheduled_start = next_cycle_;
+    const auto cycle_deadline =
+        scheduled_start + control_period_;
 
-    // Check whether this cycle started later than scheduled.
-    if (cycle_start > next_cycle_)
-    {
-        const auto backlog =
-            std::chrono::duration<double, std::milli>(
-                cycle_start - next_cycle_);
+    CycleTiming timing{
+        scheduled_start,
+        cycle_start,
+        cycle_deadline,
+        {}};
 
-        const double backlog_ms = backlog.count();
-
-        if (backlog_ms > max_backlog_)
-        {
-            max_backlog_ = backlog_ms;
-        }
-    }
+    const bool behind_schedule =
+        isBehindSchedule(cycle_start);
 
     // Measure the time between cycle starts.
     if (measured_cycles_ > 0)
@@ -58,12 +55,13 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
 
     previous_cycle_ = cycle_start;
 
-    // Record cycles that started behind schedule.
-    if (cycle_start > next_cycle_)
+    // Record cycles that started late.
+    if (behind_schedule)
     {
         ++delayed_cycles_;
 
-        const auto backlog = cycle_start - next_cycle_;
+        const auto backlog =
+            cycle_start - scheduled_start;
 
         const auto backlog_ms =
             std::chrono::duration<double, std::milli>(backlog);
@@ -79,11 +77,6 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
         {
             ++backlog_cycles_;
         }
-
-        if (backlog_value > max_jitter_)
-        {
-            max_jitter_ = backlog_value;
-        }
     }
 
     // Publish one complete snapshot.
@@ -95,11 +88,37 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
     // Run the actual control work.
     robot_.update(dt_);
 
-    const auto cycle_end = std::chrono::steady_clock::now();
+    timing.actual_end =
+        std::chrono::steady_clock::now();
+
+    const auto scheduling_delay =
+        std::chrono::duration<double, std::milli>(
+            timing.actual_start - timing.scheduled_start);
+
+    const double scheduling_delay_ms =
+        scheduling_delay.count();
+
+    if (scheduling_delay_ms > max_scheduling_delay_)
+    {
+        max_scheduling_delay_ = scheduling_delay_ms;
+    }
+
+    const auto deadline_margin =
+        std::chrono::duration<double, std::milli>(
+            timing.deadline - timing.actual_end);
+
+    const double deadline_margin_ms =
+        deadline_margin.count();
+
+    if (measured_cycles_ == 0 ||
+        deadline_margin_ms < min_deadline_margin_)
+    {
+        min_deadline_margin_ = deadline_margin_ms;
+    }
 
     const auto execution_time =
         std::chrono::duration<double, std::milli>(
-            cycle_end - cycle_start);
+            timing.actual_end - timing.actual_start);
 
     const double execution_ms = execution_time.count();
 
@@ -108,7 +127,7 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
         max_execution_time_ = execution_ms;
     }
 
-    if (cycle_end > cycle_deadline)
+    if (timing.actual_end > timing.deadline)
     {
         ++deadline_misses_;
     }
@@ -116,7 +135,7 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
     ++measured_cycles_;
     ++completed_cycles_;
 
-    // Keep the schedule based on the original cycle times.
+    // Keep the fixed 1 ms schedule.
     next_cycle_ += control_period_;
 
     return execution_time;
@@ -175,9 +194,9 @@ void ControlLoop::printTimingStatistics() const
     std::cout << "Deadline misses: "
               << deadline_misses_
               << '\n';
-              
-    std::cout << "Maximum jitter: "
-              << max_jitter_
+
+    std::cout << "Maximum scheduling delay: "
+              << max_scheduling_delay_
               << " ms\n";
 
     std::cout << "Maximum schedule backlog: "
@@ -187,6 +206,10 @@ void ControlLoop::printTimingStatistics() const
     std::cout << "Cycles with >= 1 ms backlog: "
               << backlog_cycles_
               << '\n';
+
+    std::cout << "Minimum deadline margin: "
+              << min_deadline_margin_
+              << " ms\n";
 }
 
 RobotState ControlLoop::state() const
@@ -205,4 +228,16 @@ void ControlLoop::printSnapshot(const RobotState &state) const
 int ControlLoop::completedCycles() const noexcept
 {
     return completed_cycles_.load();
+}
+
+std::chrono::steady_clock::time_point
+ControlLoop::current_deadline() const noexcept
+{
+    return next_cycle_ + control_period_;
+}
+
+bool ControlLoop::isBehindSchedule(
+    std::chrono::steady_clock::time_point now) const noexcept
+{
+    return now >= next_cycle_ + control_period_;
 }
