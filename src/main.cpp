@@ -20,27 +20,16 @@ int main()
     // Start the control thread.
     control_loop.run(cycle_count);
 
+    // Wait for the control loop to finish.
     while (control_loop.completedCycles() < cycle_count)
     {
         std::this_thread::sleep_for(
-            std::chrono::milliseconds{100});
-
-        std::cout << "Completed cycles: "
-                  << control_loop.completedCycles()
-                  << '\n';
-
-        // Read a complete robot snapshot while the control loop is running.
-        const RobotState state = control_loop.state();
-
-        std::cout << "Joint 1: "
-                  << state[0].position.degrees()
-                  << " degrees\n";
+            std::chrono::milliseconds{10});
     }
 
     const RobotState state = control_loop.state();
 
     control_loop.printSnapshot(state);
-
     control_loop.printTimingStatistics();
 
     std::cout << "Completed cycles: "

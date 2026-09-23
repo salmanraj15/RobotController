@@ -76,8 +76,12 @@ The project currently contains:
 * A MotorInterface abstraction
 * A simulated motor implementation
 * A RobotSimulator responsible for advancing physical state
-* A basic simulation update loop at a 1 ms timestep
+* A fixed 1 ms simulation timestep
 * A dedicated control thread using `std::jthread`
+* A dedicated control scheduler abstraction
+* Fixed-size atomic state snapshots
+* 1 kHz timing instrumentation
+* Separate control execution time from scheduling latency
 * C++20 build configuration using CMake and Ninja
 
 ### Current Simulation Model
@@ -190,22 +194,28 @@ The control loop and monitoring code run on separate threads, so shared data req
 
 A completed-cycle counter is stored as:
 
-```cpp
-std::atomic<int>
-```
+    std::atomic<int>
 
 This allows the monitoring thread to read the counter while the control thread updates it without a data race.
 
-Robot state contains multiple related values, so it is protected as a complete snapshot using a mutex.
+Robot state contains multiple related values, so it is published as a complete snapshot.
 
-The control loop publishes the latest `RobotState` while holding the mutex, and the monitoring thread copies the snapshot while holding the same mutex.
+The project initially used a mutex-protected `RobotState` as a correctness baseline. A fixed-size `SnapshotBuffer` has now been introduced as a synchronization experiment.
 
-This separates two synchronization problems:
+The snapshot buffer uses:
 
-- Atomic values for individual pieces of shared state
-- Mutex-protected snapshots for related state that must be read consistently
+* A fixed-size array of atomic values
+* An atomic sequence counter
+* Acquire/release synchronization
+* Sequence validation to detect concurrent updates
 
-The mutex-based snapshot is currently used as a  correctness baseline. A lock-free snapshot design can be evaluated later and compared against this implementation.
+The sequence counter uses an even value for a stable snapshot and an odd value while the writer is updating the snapshot.
+
+The reader checks the sequence before and after reading the state. If the sequence changes, the reader retries because the snapshot may have been modified during the read.
+
+This removes the mutex from the snapshot publication path while keeping the snapshot bounded and allocation-free.
+
+The snapshot design is currently an evaluated synchronization approach rather than a final hard real-time guarantee.
 
 ## Strong Types
 
@@ -393,6 +403,7 @@ RobotController/
 │   ├── AngularAcceleration.hpp
 │   ├── AngularVelocity.hpp
 │   ├── ControlLoop.hpp
+│   ├── ControlScheduler.hpp
 │   ├── Duration.hpp
 │   ├── Joint.hpp
 │   ├── JointTypes.hpp
@@ -402,18 +413,21 @@ RobotController/
 │   ├── Robot.hpp
 │   ├── RobotSimulator.hpp
 │   ├── SafetyLayer.hpp
-│   └── SimulatedMotor.hpp
+│   ├── SimulatedMotor.hpp
+│   └── SnapshotBuffer.hpp
 │
 └── src/
     ├── Angle.cpp
     ├── ControlLoop.cpp
+    ├── ControlScheduler.cpp
     ├── Joint.cpp
     ├── main.cpp
     ├── PDController.cpp
     ├── Robot.cpp
     ├── RobotSimulator.cpp
     ├── SafetyLayer.cpp
-    └── SimulatedMotor.cpp
+    ├── SimulatedMotor.cpp
+    └── SnapshotBuffer.cpp
 
 ## Building
 
@@ -487,15 +501,24 @@ The development process emphasizes:
 * [x] Robot simulator
 * [x] Fixed-period control loop
 * [x] Threading and `std::jthread`
-* [x] 1 kHz timing analysis and scheduler measurements
-* [x] Atomic counters and mutex-based synchronization
+* [x] Portable 1 kHz control-loop architecture
+* [x] Bounded/fixed-size control path
+* [x] 1 kHz timing instrumentation
+* [x] Separate control execution time from scheduling latency
+* [x] Atomic counters and synchronized state snapshots
+* [x] Snapshot synchronization experiment
+* [x] Separate scheduling from control-loop logic
 
 ### Next
 
-* [ ] Deterministic 1 kHz control loop
-* [ ] Linux build and runtime verification
+* [ ] Deterministic-oriented 1 kHz control loop
+* [ ] Platform scheduling backends
+    * [ ] Windows
+    * [ ] Linux
+* [ ] Real-time verification
+    * [ ] Linux/PREEMPT_RT
 * [ ] Real-time-oriented data structures
-* [ ] Evaluate lock-free snapshot design
+* [ ] Evaluate snapshot design under real-time constraints
 * [ ] Logging and diagnostics
 * [ ] Unit tests
 * [ ] Sanitizers

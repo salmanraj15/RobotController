@@ -5,20 +5,22 @@
 
 ControlLoop::ControlLoop(Robot &robot)
     : robot_{robot},
-      next_cycle_{std::chrono::steady_clock::now()},
-      previous_cycle_{next_cycle_}
+      scheduler_{control_period_},
+      previous_cycle_{scheduler_.scheduledStart()}
 {
 }
 
 std::chrono::duration<double, std::milli> ControlLoop::update()
 {
-    // Wait until the next scheduled cycle.
-    std::this_thread::sleep_until(next_cycle_);
+    // Wait for the next scheduled cycle.
+    scheduler_.wait();
 
     const auto cycle_start =
         std::chrono::steady_clock::now();
 
-    const auto scheduled_start = next_cycle_;
+    const auto scheduled_start =
+        scheduler_.scheduledStart();
+
     const auto cycle_deadline =
         scheduled_start + control_period_;
 
@@ -29,7 +31,7 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
         {}};
 
     const bool behind_schedule =
-        isBehindSchedule(cycle_start);
+    scheduler_.isBehindSchedule(cycle_start);
 
     // Measure the time between cycle starts.
     if (measured_cycles_ > 0)
@@ -79,14 +81,47 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
         }
     }
 
-    // Publish one complete snapshot.
+    // Run the actual control work.
+    const auto control_start =
+        std::chrono::steady_clock::now();
+
+    robot_.update(dt_);
+
+    const auto control_end =
+        std::chrono::steady_clock::now();
+
+    const auto control_time =
+        std::chrono::duration<double, std::milli>(
+            control_end - control_start);
+
+    const double control_ms =
+        control_time.count();
+
+    if (control_ms > max_control_time_)
     {
-        std::lock_guard lock{state_mutex_};
-        state_ = robot_.state();
+        max_control_time_ = control_ms;
     }
 
-    // Run the actual control work.
-    robot_.update(dt_);
+    // Publish the new state after the control update.
+    const auto snapshot_start =
+        std::chrono::steady_clock::now();
+
+    state_snapshot_.publish(robot_.state());
+
+    const auto snapshot_end =
+        std::chrono::steady_clock::now();
+
+    const auto snapshot_time =
+        std::chrono::duration<double, std::milli>(
+            snapshot_end - snapshot_start);
+
+    const double snapshot_ms =
+        snapshot_time.count();
+
+    if (snapshot_ms > max_snapshot_time_)
+    {
+        max_snapshot_time_ = snapshot_ms;
+    }
 
     timing.actual_end =
         std::chrono::steady_clock::now();
@@ -136,7 +171,7 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
     ++completed_cycles_;
 
     // Keep the fixed 1 ms schedule.
-    next_cycle_ += control_period_;
+    scheduler_.advance();
 
     return execution_time;
 }
@@ -187,6 +222,14 @@ void ControlLoop::printTimingStatistics() const
               << max_execution_time_
               << " ms\n";
 
+    std::cout << "Maximum control time: "
+              << max_control_time_
+              << " ms\n";
+
+    std::cout << "Maximum snapshot time: "
+              << max_snapshot_time_
+              << " ms\n";
+
     std::cout << "Delayed cycles: "
               << delayed_cycles_
               << '\n';
@@ -212,10 +255,9 @@ void ControlLoop::printTimingStatistics() const
               << " ms\n";
 }
 
-RobotState ControlLoop::state() const
+RobotState ControlLoop::state() const noexcept
 {
-    std::lock_guard lock{state_mutex_};
-    return state_;
+    return state_snapshot_.read();
 }
 
 void ControlLoop::printSnapshot(const RobotState &state) const
@@ -230,14 +272,3 @@ int ControlLoop::completedCycles() const noexcept
     return completed_cycles_.load();
 }
 
-std::chrono::steady_clock::time_point
-ControlLoop::current_deadline() const noexcept
-{
-    return next_cycle_ + control_period_;
-}
-
-bool ControlLoop::isBehindSchedule(
-    std::chrono::steady_clock::time_point now) const noexcept
-{
-    return now >= next_cycle_ + control_period_;
-}

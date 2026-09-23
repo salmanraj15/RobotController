@@ -2,11 +2,12 @@
 
 #include <atomic>
 #include <chrono>
-#include <mutex>
 #include <thread>
 
 #include "Duration.hpp"
 #include "Robot.hpp"
+#include "SnapshotBuffer.hpp"
+#include "ControlScheduler.hpp"
 
 // Runs the robot control loop at a fixed period.
 class ControlLoop
@@ -18,7 +19,7 @@ public:
 
     void printTimingStatistics() const;
 
-    RobotState state() const;
+    RobotState state() const noexcept;
 
     void printSnapshot(const RobotState &state) const;
 
@@ -35,16 +36,9 @@ private:
 
     std::chrono::duration<double, std::milli> update();
 
-    std::chrono::steady_clock::time_point
-    current_deadline() const noexcept;
-
-    bool isBehindSchedule(
-        std::chrono::steady_clock::time_point now) const noexcept;
-
     Robot &robot_;
 
-    mutable std::mutex state_mutex_;
-    RobotState state_{};
+    SnapshotBuffer state_snapshot_;
 
     // The control loop runs every 1 ms.
     static constexpr auto control_period_ =
@@ -52,7 +46,7 @@ private:
 
     Duration dt_{0.001};
 
-    std::chrono::steady_clock::time_point next_cycle_;
+    ControlScheduler scheduler_;
     std::chrono::steady_clock::time_point previous_cycle_;
 
     std::jthread thread_;
@@ -61,6 +55,8 @@ private:
     double max_period_{0.0};
     double total_period_{0.0};
     double max_execution_time_{0.0};
+    double max_control_time_{0.0};
+    double max_snapshot_time_{0.0};
 
     double max_scheduling_delay_{0.0};
     double min_deadline_margin_{0.0};
