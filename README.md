@@ -124,7 +124,25 @@ PortableControlScheduler
 IControlScheduler
 ```
 
-The Windows scheduler currently inherits the portable timing behavior. Windows-specific real-time mechanisms will be introduced in a later stage.
+`WindowsControlScheduler` reuses the portable scheduler's scheduling timeline but uses a Windows waitable timer for cycle waiting.
+
+The scheduler maintains the absolute control-cycle timeline independently from the operating-system wait mechanism.
+
+The Windows scheduler currently uses:
+
+```text
+scheduled cycle time
+        ↓
+calculate remaining time
+        ↓
+SetWaitableTimer()
+        ↓
+WaitForSingleObject()
+        ↓
+advance scheduling timeline
+```
+
+Windows-specific real-time mechanisms beyond the waitable timer will be introduced in later stages.
 
 ## Current Simulation Model
 
@@ -150,32 +168,46 @@ The `RobotSimulator` is responsible for advancing the simulated physical state. 
 
 ## Timing and Windows Scheduling
 
-The control loop uses `std::chrono::steady_clock` together with `std::this_thread::sleep_until()` to schedule a nominal 1 ms control period.
+The control loop uses `std::chrono::steady_clock` and an `IControlScheduler` to maintain a nominal 1 ms control period.
 
-The scheduler is now separated behind the `IControlScheduler` interface so that platform-specific timing mechanisms can be introduced independently from the control-loop logic.
+The portable scheduler uses:
+
+```cpp
+std::this_thread::sleep_until()
+```
+
+The Windows scheduler uses:
+
+```text
+SetWaitableTimer()
+        ↓
+WaitForSingleObject()
+```
+
+Both schedulers maintain the same absolute scheduling timeline so that scheduling delay and backlog can be measured consistently.
 
 Testing on Windows continues to show an important limitation of the current scheduling approach.
 
-A 2.5 second simulation was executed with 2,500 control cycles. The latest representative Windows run produced:
+A 2.5 second simulation was executed with 2,500 control cycles. The latest representative Windows waitable-timer run produced:
 
-- Real execution time: 2.52327 s
+- Real execution time: 2.51882 s
 - Simulated time: 2.5 s
-- Average cycle period: 1.00214 ms
-- Minimum cycle period: 0.0017 ms
-- Maximum cycle period: 30.5073 ms
-- Maximum execution time: 0.2534 ms
-- Maximum control time: 0.2517 ms
-- Maximum snapshot time: 0.0724 ms
-- Delayed cycles: 2189
-- Deadline misses: 2190
-- Maximum scheduling delay: 29.1474 ms
-- Maximum schedule backlog: 28.1474 ms
-- Cycles with at least 1 ms backlog: 2039
-- Minimum deadline margin: -28.1553 ms
+- Average cycle period: 0.999658 ms
+- Minimum cycle period: 0.0013 ms
+- Maximum cycle period: 16.4885 ms
+- Maximum execution time: 0.2718 ms
+- Maximum control time: 0.2698 ms
+- Maximum snapshot time: 0.02 ms
+- Delayed cycles: 2244
+- Deadline misses: 2245
+- Maximum scheduling delay: 16.4124 ms
+- Maximum schedule backlog: 15.4124 ms
+- Cycles with at least 1 ms backlog: 2045
+- Minimum deadline margin: -15.4224 ms
 
 These measurements are representative Windows runs and will vary between executions.
 
-The results show that the controller and simulator execution work remains below the 1 ms cycle budget. The measured maximum control time was 0.2517 ms and the maximum total control-loop execution time was 0.2534 ms.
+The results show that the controller and simulator execution work remains below the 1 ms cycle budget. The measured maximum control time was 0.2698 ms and the maximum total control-loop execution time was 0.2718 ms.
 
 However, the Windows scheduling environment introduces significant timing variation at the 1 ms resolution required by a deterministic real-time control loop.
 
@@ -185,7 +217,7 @@ The control loop therefore also measures deadline misses. A deadline miss is rec
 
 This separates scheduling delay from control execution time and provides a clearer measurement of whether the control cycle completed within its allowed time window.
 
-When the thread wakes later than its scheduled time, `sleep_until()` can return immediately on subsequent iterations because the next scheduled time is already in the past. This can produce a long cycle period followed by a very short cycle period.
+When the thread wakes later than its scheduled time, the scheduler can find that the next scheduled time is already in the past. This can produce a long cycle period followed by a very short cycle period.
 
 The control loop intentionally executes every requested cycle rather than skipping delayed cycles. The simulation timestep remains fixed at 1 ms, independent of wall-clock scheduling delay.
 
@@ -199,7 +231,9 @@ Backlog measures lateness beyond one full control period, so a 1.4 ms scheduling
 
 A nominal 1 kHz loop is not the same as a deterministic 1 kHz real-time loop.
 
-Using `sleep_until()` provides an absolute scheduling mechanism, and the average cycle period can remain very close to 1 ms. However, normal Windows thread scheduling can introduce significant delays between the scheduled and actual cycle start times.
+The scheduler maintains an absolute 1 ms scheduling timeline while the platform-specific scheduler controls how the thread waits for the next cycle.
+
+On Windows, the waitable timer provides the waiting mechanism, but normal Windows thread scheduling can still introduce significant delays between the scheduled and actual cycle start times.
 
 The measured controller and simulator execution time is well below the 1 ms cycle budget. The timing variation therefore comes primarily from the execution environment rather than the control workload.
 
@@ -219,7 +253,7 @@ Achieving deterministic 1 ms behavior requires additional real-time consideratio
 
 This does not mean that a 1 kHz control loop cannot run on Windows. The current results show that the loop can maintain an average period close to 1 ms, but the normal Windows scheduling environment does not provide the deterministic timing behavior required for a hard real-time guarantee in this implementation.
 
-The scheduler abstraction now provides a boundary where Windows- and Linux-specific timing mechanisms can be evaluated independently.
+The scheduler abstraction provides a boundary where Windows- and Linux-specific timing mechanisms can be evaluated independently.
 
 ## Threading and `std::jthread`
 
@@ -574,10 +608,10 @@ The development process emphasizes:
 - [x] Platform-specific scheduler abstraction
 - [x] Windows scheduler implementation boundary
 - [x] Scheduler factory for platform-specific selection
+- [x] Windows waitable-timer scheduling
 
 ### Next
 
-- [ ] Windows-specific scheduling mechanisms
 - [ ] Deterministic 1 kHz control-loop design
 - [ ] Linux scheduler implementation
 - [ ] Real-time verification

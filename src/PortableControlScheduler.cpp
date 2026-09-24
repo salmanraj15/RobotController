@@ -20,10 +20,9 @@ PortableControlScheduler::waitForNextCycle()
     // Wait until the next scheduled cycle.
     std::this_thread::sleep_until(next_cycle_);
 
-    const auto scheduled_start = next_cycle_;
+    const auto scheduled_start = scheduledCycle();
 
-    // Keep the schedule based on the original timeline.
-    next_cycle_ += period_;
+    advanceSchedule();
 
     return scheduled_start;
 }
@@ -58,4 +57,15 @@ PortableControlScheduler::backlog(
         actual_start - scheduled_start - period_;
 
     return std::chrono::duration<double, std::milli>(delay);
+}
+
+PortableControlScheduler::TimePoint
+PortableControlScheduler::scheduledCycle() const noexcept
+{
+    return next_cycle_;
+}
+
+void PortableControlScheduler::advanceSchedule() noexcept
+{
+    next_cycle_ += period_;
 }

@@ -26,6 +26,11 @@ public:
         TimePoint actual_start,
         TimePoint scheduled_start) const noexcept override;
 
+protected:
+    TimePoint scheduledCycle() const noexcept;
+
+    void advanceSchedule() noexcept;
+
 private:
     std::chrono::milliseconds period_;
     TimePoint next_cycle_;
