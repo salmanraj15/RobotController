@@ -13,13 +13,21 @@ public:
 
     void reset();
 
-    void wait();
+    TimePoint waitForNextCycle();
 
-    void advance();
+    bool hasBacklog(
+        TimePoint actual_start,
+        TimePoint scheduled_start) const noexcept;
 
-    bool isBehindSchedule(TimePoint now) const noexcept;
+    std::chrono::duration<double, std::milli>
+    schedulingDelay(
+        TimePoint actual_start,
+        TimePoint scheduled_start) const noexcept;
 
-    TimePoint scheduledStart() const noexcept;
+    std::chrono::duration<double, std::milli>
+    backlog(
+        TimePoint actual_start,
+        TimePoint scheduled_start) const noexcept;
 
 private:
     std::chrono::milliseconds period_;

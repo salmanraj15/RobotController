@@ -112,24 +112,26 @@ The control loop uses `std::chrono::steady_clock` together with `std::this_threa
 
 Testing on Windows showed an important limitation of this approach.
 
-A 2.5 second simulation was executed with 2,500 control cycles. One representative run on Windows produced:
+A 2.5 second simulation was executed with 2,500 control cycles. The latest representative run on Windows produced:
 
-- Real execution time: 2.528 s
+- Real execution time: 2.519 s
 - Simulated time: 2.5 s
-- Average cycle period: 0.999108 ms
-- Minimum cycle period: 0.0009 ms
-- Maximum cycle period: 30.8553 ms
-- Maximum control-loop execution time: 0.2262 ms
-- Delayed cycles: 2181
-- Deadline misses: 2181
-- Maximum scheduling delay: 29.4062 ms
-- Maximum schedule backlog: 29.4062 ms
-- Cycles with at least 1 ms backlog: 2181
-- Minimum deadline margin: -28.4162 ms
+- Average cycle period: 0.99948 ms
+- Minimum cycle period: 0.0013 ms
+- Maximum cycle period: 21.6456 ms
+- Maximum execution time: 0.2882 ms
+- Maximum control time: 0.1475 ms
+- Maximum snapshot time: 0.0650 ms
+- Delayed cycles: 2190
+- Deadline misses: 2190
+- Maximum scheduling delay: 19.7306 ms
+- Maximum schedule backlog: 18.7306 ms
+- Cycles with at least 1 ms backlog: 2038
+- Minimum deadline margin: -18.7392 ms
 
 Note: These measurements are representative Windows runs and will vary between executions.
 
-The results demonstrate that the controller and simulator execute well within the 1 ms budget. The measured maximum execution time was 0.2262 ms.
+The results demonstrate that the controller and simulator execution work remains below the 1 ms cycle budget. The measured maximum control time was 0.1475 ms and the maximum total control-loop execution time was 0.2882 ms.
 
 However, the Windows scheduling environment introduces significant timing variation at the 1 ms resolution required by a deterministic real-time control loop.
 
@@ -144,6 +146,9 @@ When the thread wakes later than its scheduled time, `sleep_until()` can return 
 in the past. This can produce a long cycle period followed by a very short cycle period.
 
 The control loop intentionally executes every requested cycle rather than skipping delayed cycles. The simulation timestep remains fixed at 1 ms, independent of wall-clock scheduling delay.
+
+The `ControlScheduler` now owns the scheduling timeline and returns the scheduled start time for the cycle it releases. Scheduling delay and backlog are calculated explicitly from the actual start and that cycle's scheduled start. Backlog measures lateness beyond one full control period, so a
+1.4 ms scheduling delay corresponds to 0.4 ms of schedule backlog.
 
 ### Lesson learned
 
@@ -168,6 +173,8 @@ may already be in the past. This preserves the requirement that every requested 
 
 Achieving deterministic 1 ms behavior requires additional real-time considerations beyond the scheduling mechanism itself, including thread scheduling, CPU affinity, synchronization, memory allocation, I/O behavior,
 and ultimately an operating-system/environment capable of providing appropriate real-time guarantees.
+
+This does not mean that a 1 kHz control loop cannot run on Windows. The current results show that the loop can maintain an average period close to 1 ms, but the normal Windows scheduling environment does not provide the deterministic timing behavior required for a hard real-time guarantee in this implementation. The next stage is therefore to isolate platform-specific scheduling mechanisms so they can be evaluated independently.
 
 ### Threading and `std::jthread`
 
@@ -194,7 +201,9 @@ The control loop and monitoring code run on separate threads, so shared data req
 
 A completed-cycle counter is stored as:
 
-    std::atomic<int>
+```cpp
+std::atomic<int>
+```
 
 This allows the monitoring thread to read the counter while the control thread updates it without a data race.
 
@@ -508,10 +517,11 @@ The development process emphasizes:
 * [x] Atomic counters and synchronized state snapshots
 * [x] Snapshot synchronization experiment
 * [x] Separate scheduling from control-loop logic
+* [x] Explicit scheduled-start, scheduling-delay, and backlog measurements
 
 ### Next
 
-* [ ] Deterministic-oriented 1 kHz control loop
+* [ ] Deterministic 1 kHz control-loop design
 * [ ] Platform scheduling backends
     * [ ] Windows
     * [ ] Linux

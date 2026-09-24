@@ -14,26 +14,48 @@ void ControlScheduler::reset()
     next_cycle_ = Clock::now();
 }
 
-void ControlScheduler::wait()
+ControlScheduler::TimePoint
+ControlScheduler::waitForNextCycle()
 {
     // Wait until the next scheduled cycle.
     std::this_thread::sleep_until(next_cycle_);
-}
 
-void ControlScheduler::advance()
-{
+    const auto scheduled_start = next_cycle_;
+
     // Keep the schedule based on the original timeline.
     next_cycle_ += period_;
+
+    return scheduled_start;
 }
 
-bool ControlScheduler::isBehindSchedule(
-    TimePoint now) const noexcept
+bool ControlScheduler::hasBacklog(
+    TimePoint actual_start,
+    TimePoint scheduled_start) const noexcept
 {
-    return now >= next_cycle_ + period_;
+    return actual_start >= scheduled_start + period_;
 }
 
-ControlScheduler::TimePoint
-ControlScheduler::scheduledStart() const noexcept
+std::chrono::duration<double, std::milli>
+ControlScheduler::schedulingDelay(
+    TimePoint actual_start,
+    TimePoint scheduled_start) const noexcept
 {
-    return next_cycle_;
+    const auto delay =
+        actual_start - scheduled_start;
+
+    return std::chrono::duration<double, std::milli>(delay);
+}
+
+std::chrono::duration<double, std::milli>
+ControlScheduler::backlog(
+    TimePoint actual_start,
+    TimePoint scheduled_start) const noexcept
+{
+    if (!hasBacklog(actual_start, scheduled_start))
+        return std::chrono::duration<double, std::milli>{0.0};
+
+    const auto delay =
+        actual_start - scheduled_start - period_;
+
+    return std::chrono::duration<double, std::milli>(delay);
 }

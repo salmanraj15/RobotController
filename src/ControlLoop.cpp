@@ -6,20 +6,18 @@
 ControlLoop::ControlLoop(Robot &robot)
     : robot_{robot},
       scheduler_{control_period_},
-      previous_cycle_{scheduler_.scheduledStart()}
+      previous_cycle_{std::chrono::steady_clock::now()}
 {
 }
 
 std::chrono::duration<double, std::milli> ControlLoop::update()
 {
     // Wait for the next scheduled cycle.
-    scheduler_.wait();
+    const auto scheduled_start =
+        scheduler_.waitForNextCycle();
 
     const auto cycle_start =
         std::chrono::steady_clock::now();
-
-    const auto scheduled_start =
-        scheduler_.scheduledStart();
 
     const auto cycle_deadline =
         scheduled_start + control_period_;
@@ -31,7 +29,9 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
         {}};
 
     const bool behind_schedule =
-    scheduler_.isBehindSchedule(cycle_start);
+        scheduler_.hasBacklog(
+            cycle_start,
+            scheduled_start);
 
     // Measure the time between cycle starts.
     if (measured_cycles_ > 0)
@@ -63,7 +63,9 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
         ++delayed_cycles_;
 
         const auto backlog =
-            cycle_start - scheduled_start;
+            scheduler_.backlog(
+                cycle_start,
+                scheduled_start);
 
         const auto backlog_ms =
             std::chrono::duration<double, std::milli>(backlog);
@@ -127,8 +129,9 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
         std::chrono::steady_clock::now();
 
     const auto scheduling_delay =
-        std::chrono::duration<double, std::milli>(
-            timing.actual_start - timing.scheduled_start);
+        scheduler_.schedulingDelay(
+            timing.actual_start,
+            timing.scheduled_start);
 
     const double scheduling_delay_ms =
         scheduling_delay.count();
@@ -169,9 +172,6 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
 
     ++measured_cycles_;
     ++completed_cycles_;
-
-    // Keep the fixed 1 ms schedule.
-    scheduler_.advance();
 
     return execution_time;
 }
@@ -271,4 +271,3 @@ int ControlLoop::completedCycles() const noexcept
 {
     return completed_cycles_.load();
 }
-
