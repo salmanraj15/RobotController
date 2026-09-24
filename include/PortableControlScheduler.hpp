@@ -2,10 +2,10 @@
 
 #include "IControlScheduler.hpp"
 
-class ControlScheduler final : public IControlScheduler
+class PortableControlScheduler : public IControlScheduler
 {
 public:
-    explicit ControlScheduler(
+    explicit PortableControlScheduler(
         std::chrono::milliseconds period);
 
     void reset() override;

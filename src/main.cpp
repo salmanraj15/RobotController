@@ -1,5 +1,5 @@
 #include "ControlLoop.hpp"
-#include "ControlScheduler.hpp"
+#include "ControlSchedulerFactory.hpp"
 #include "Robot.hpp"
 
 #include <chrono>
@@ -9,12 +9,13 @@
 int main()
 {
     Robot robot;
-    ControlScheduler scheduler{
-        std::chrono::milliseconds{1}};
+    auto scheduler =
+        createControlScheduler(
+            std::chrono::milliseconds{1});
 
     ControlLoop control_loop{
         robot,
-        scheduler};
+        *scheduler};
 
     robot.initializeJointPosition(JointIndex{0}, Angle{0.0});
     robot.setJointTargetPosition(JointIndex{0}, Angle{90.0});

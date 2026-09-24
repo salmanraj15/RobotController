@@ -1,21 +1,21 @@
-#include "ControlScheduler.hpp"
+#include "PortableControlScheduler.hpp"
 
 #include <thread>
 
-ControlScheduler::ControlScheduler(
+PortableControlScheduler::PortableControlScheduler(
     std::chrono::milliseconds period)
     : period_{period},
       next_cycle_{Clock::now()}
 {
 }
 
-void ControlScheduler::reset()
+void PortableControlScheduler::reset()
 {
     next_cycle_ = Clock::now();
 }
 
-ControlScheduler::TimePoint
-ControlScheduler::waitForNextCycle()
+PortableControlScheduler::TimePoint
+PortableControlScheduler::waitForNextCycle()
 {
     // Wait until the next scheduled cycle.
     std::this_thread::sleep_until(next_cycle_);
@@ -28,7 +28,7 @@ ControlScheduler::waitForNextCycle()
     return scheduled_start;
 }
 
-bool ControlScheduler::hasBacklog(
+bool PortableControlScheduler::hasBacklog(
     TimePoint actual_start,
     TimePoint scheduled_start) const noexcept
 {
@@ -36,7 +36,7 @@ bool ControlScheduler::hasBacklog(
 }
 
 std::chrono::duration<double, std::milli>
-ControlScheduler::schedulingDelay(
+PortableControlScheduler::schedulingDelay(
     TimePoint actual_start,
     TimePoint scheduled_start) const noexcept
 {
@@ -47,7 +47,7 @@ ControlScheduler::schedulingDelay(
 }
 
 std::chrono::duration<double, std::milli>
-ControlScheduler::backlog(
+PortableControlScheduler::backlog(
     TimePoint actual_start,
     TimePoint scheduled_start) const noexcept
 {
