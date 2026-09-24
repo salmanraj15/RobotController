@@ -7,13 +7,15 @@
 #include "Duration.hpp"
 #include "Robot.hpp"
 #include "SnapshotBuffer.hpp"
-#include "ControlScheduler.hpp"
+#include "IControlScheduler.hpp"
 
 // Runs the robot control loop at a fixed period.
 class ControlLoop
 {
 public:
-    explicit ControlLoop(Robot &robot);
+    ControlLoop(
+        Robot &robot,
+        IControlScheduler &scheduler);
 
     void run(int cycle_count);
 
@@ -46,7 +48,7 @@ private:
 
     Duration dt_{0.001};
 
-    ControlScheduler scheduler_;
+    IControlScheduler &scheduler_;
     std::chrono::steady_clock::time_point previous_cycle_;
 
     std::jthread thread_;

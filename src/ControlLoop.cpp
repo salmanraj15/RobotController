@@ -3,9 +3,11 @@
 #include <iostream>
 #include <thread>
 
-ControlLoop::ControlLoop(Robot &robot)
+ControlLoop::ControlLoop(
+    Robot &robot,
+    IControlScheduler &scheduler)
     : robot_{robot},
-      scheduler_{control_period_},
+      scheduler_{scheduler},
       previous_cycle_{std::chrono::steady_clock::now()}
 {
 }
