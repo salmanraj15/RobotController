@@ -26,8 +26,14 @@ private:
         timespec time,
         Clock::duration duration) noexcept;
 
+    // Configure the thread for the control loop.
+    void configureRealtimeScheduling() noexcept;
+
     // Keep both clocks tied to the same starting point.
     timespec linux_start_time_{};
     TimePoint chrono_start_time_{};
+
+    static constexpr int control_cpu_ = 0;
+    static constexpr int fifo_priority_ = 50;
 #endif
 };

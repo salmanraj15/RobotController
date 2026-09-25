@@ -3,6 +3,10 @@
 #ifdef __linux__
 
 #include <cerrno>
+#include <cstdio>
+#include <cstring>
+#include <pthread.h>
+#include <sched.h>
 #include <stdexcept>
 
 LinuxControlScheduler::LinuxControlScheduler(
@@ -22,12 +26,52 @@ LinuxControlScheduler::LinuxControlScheduler(
 
 void LinuxControlScheduler::onControlThreadStart() noexcept
 {
-    // Linux-specific thread setup will be added here.
+    configureRealtimeScheduling();
+}
+
+void LinuxControlScheduler::configureRealtimeScheduling() noexcept
+{
+    cpu_set_t cpu_set;
+
+    CPU_ZERO(&cpu_set);
+    CPU_SET(control_cpu_, &cpu_set);
+
+    // Keep the control thread on one CPU.
+    if (sched_setaffinity(
+            0,
+            sizeof(cpu_set),
+            &cpu_set) != 0)
+    {
+        std::fprintf(
+            stderr,
+            "Linux scheduler: failed to set CPU affinity: %s\n",
+            std::strerror(errno));
+
+        return;
+    }
+
+    sched_param parameters{};
+    parameters.sched_priority = fifo_priority_;
+
+    // Give the control thread real-time FIFO scheduling.
+    const int result =
+        pthread_setschedparam(
+            pthread_self(),
+            SCHED_FIFO,
+            &parameters);
+
+    if (result != 0)
+    {
+        std::fprintf(
+            stderr,
+            "Linux scheduler: failed to set SCHED_FIFO: %s\n",
+            std::strerror(result));
+    }
 }
 
 int LinuxControlScheduler::currentProcessor() const noexcept
 {
-    return -1;
+    return sched_getcpu();
 }
 
 double LinuxControlScheduler::maxWakeLateness() const noexcept

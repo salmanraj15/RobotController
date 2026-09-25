@@ -179,7 +179,23 @@ The scheduler captures a `CLOCK_MONOTONIC` starting point and maps the portable 
 
 Interrupted sleeps are retried when `clock_nanosleep()` returns `EINTR`.
 
-The Linux scheduler has been implemented, but it has **not been tested on a Linux system yet**. Linux thread affinity, real-time scheduling policy, and priority configuration are intentionally left for later stages.
+The Linux scheduler now also configures the control thread for real-time-oriented execution:
+
+```text
+LinuxControlScheduler
+        │
+        ├── CPU affinity
+        │      └── CPU 0
+        │
+        └── SCHED_FIFO
+               └── priority 50
+```
+
+CPU affinity is configured when the control thread starts. The scheduler requests `SCHED_FIFO` with a static priority of `50`.
+
+These settings are intentionally isolated inside `LinuxControlScheduler`. The core `ControlLoop` remains independent of Linux scheduling APIs.
+
+The Linux scheduler has been implemented, but it has **not been tested on a Linux system yet**. CPU affinity and `SCHED_FIFO` configuration therefore remain unverified on an actual Linux environment.
 
 ## Current Simulation Model
 
@@ -617,6 +633,7 @@ RobotController/
     ├── SafetyLayer.cpp
     ├── SimulatedMotor.cpp
     ├── SnapshotBuffer.cpp
+    ├── LinuxControlScheduler.cpp
     └── WindowsControlScheduler.cpp
 ```
 
@@ -713,7 +730,7 @@ The development process emphasizes:
 
 ### Next
 
-- [ ] Linux real-time scheduling configuration
+- [x] Linux real-time scheduling configuration
 - [ ] Real-time verification
     - [ ] Linux/PREEMPT_RT
 - [ ] Real-time-oriented data structures
