@@ -102,7 +102,9 @@ The project currently contains:
 - A Windows control scheduler
 - A Linux control scheduler
 - A scheduler factory for platform-specific scheduler selection
-- Fixed-size atomic state snapshots
+- Fixed-size atomic state snapshot buffer
+- Bounded snapshot reads with sequence validation
+- Last-known-good state fallback for failed snapshot reads
 - 1 kHz timing instrumentation
 - Separate control execution time from scheduling latency
 - C++20 build configuration using CMake and Ninja
@@ -246,7 +248,7 @@ A 2.5 second simulation was executed with 2,500 control cycles. Representative W
 - Average cycle period close to 1 ms
 - Maximum cycle periods in the approximately 16-20 ms range
 - Maximum control execution below 1 ms
-- Maximum snapshot time below 1 ms
+- Snapshot timing is normally small, but individual measurements can be inflated by OS scheduling/preemption
 - The majority of cycles starting late
 - Deadline misses classified as scheduling-related rather than execution-related
 
@@ -274,6 +276,21 @@ One representative run produced:
 - Processor changes: 0
 
 These measurements are representative Windows runs and will vary between executions.
+
+A later run after the bounded SnapshotBuffer redesign produced:
+
+- Real execution time: 2.50502 s
+- Simulated time: 2.5 s
+- Average cycle period: 1.001 ms
+- Maximum execution time: 1.6944 ms
+- Maximum control time: 0.2469 ms
+- Maximum snapshot time: 1.6911 ms
+- Maximum scheduling delay: 17.0107 ms
+- Maximum scheduler wake lateness: 17.0067 ms
+- Execution misses: 0
+- Completed cycles: 2,500
+
+The larger maximum snapshot measurement in this run is treated as scheduler/preemption-sensitive timing data rather than evidence that the snapshot algorithm itself requires 1.69 ms of CPU time. The snapshot operation remains fixed-size and bounded, and further conclusions will be based on repeated measurements and profiling rather than a single maximum sample.
 
 The measurements separate the control workload from scheduling latency. The controller and simulator execution work remain below the 1 ms cycle budget, while the large timing spikes occur between control executions.
 
@@ -408,14 +425,19 @@ The snapshot buffer uses:
 - An atomic sequence counter
 - Acquire/release synchronization
 - Sequence validation to detect concurrent updates
+- A bounded number of read attempts
 
 The sequence counter uses an even value for a stable snapshot and an odd value while the writer is updating the snapshot.
 
 The reader checks the sequence before and after reading the state. If the sequence changes, the reader retries because the snapshot may have been modified during the read.
 
+The reader performs at most three attempts. If no consistent snapshot is obtained, the read reports failure rather than returning an unverified state.
+
+`ControlLoop` keeps the last successfully read state and returns that state when a new snapshot cannot be validated. This prevents a failed snapshot read from exposing partially updated state to the monitoring side.
+
 This removes the mutex from the snapshot publication path while keeping the snapshot bounded and allocation-free.
 
-The snapshot design is currently an evaluated synchronization approach rather than a final hard real-time guarantee.
+The snapshot design is currently an evaluated synchronization approach rather than a final hard real-time guarantee. Its behavior still needs dedicated tests and evaluation under a real-time-oriented environment.
 
 ## Strong Types
 
@@ -715,6 +737,8 @@ The development process emphasizes:
 - [x] Separate control execution time from scheduling latency
 - [x] Atomic counters and synchronized state snapshots
 - [x] Snapshot synchronization experiment
+- [x] Bounded snapshot reads
+- [x] Last-known-good snapshot fallback
 - [x] Separate scheduling from control-loop logic
 - [x] Explicit scheduled-start, scheduling-delay, and backlog measurements
 - [x] `IControlScheduler` interface
@@ -727,20 +751,24 @@ The development process emphasizes:
 - [x] Windows desktop scheduler investigated
 - [x] Measured Windows scheduler/wake-up jitter
 - [x] Established that the tested Windows configuration does not provide deterministic hard-real-time 1 kHz behavior
+- [x] Linux real-time scheduling configuration
+
 
 ### Next
 
-- [x] Linux real-time scheduling configuration
-- [ ] Real-time verification
-    - [ ] Linux/PREEMPT_RT
-- [ ] Real-time-oriented data structures
-- [ ] Evaluate snapshot design under real-time constraints
-- [ ] Logging and diagnostics
 - [ ] Unit tests
-- [ ] Sanitizers
-- [ ] Profiling
+    - [ ] Joint and safety behavior
+    - [ ] PD controller behavior
+    - [ ] SnapshotBuffer behavior
+    - [ ] ControlLoop integration
+- [ ] Sanitizers and static analysis
+- [ ] Real-time memory and allocation audit
+- [ ] Profiling and performance analysis
 - [ ] Further C++20 features
 - [ ] Communication/network interface
+- [ ] Real-time verification
+    - [ ] Linux/PREEMPT_RT
+- [ ] Final real-time validation and documentation
 
 ## License
 

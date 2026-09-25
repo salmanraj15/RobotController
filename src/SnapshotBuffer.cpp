@@ -20,11 +20,11 @@ void SnapshotBuffer::publish(const RobotState &state) noexcept
     sequence_.fetch_add(1, std::memory_order_release);
 }
 
-RobotState SnapshotBuffer::read() const noexcept
+bool SnapshotBuffer::read(RobotState &state) const noexcept
 {
-    RobotState state{};
-
-    while (true)
+    for (int attempt = 0;
+         attempt < max_read_attempts_;
+         ++attempt)
     {
         const auto before =
             sequence_.load(std::memory_order_acquire);
@@ -34,14 +34,16 @@ RobotState SnapshotBuffer::read() const noexcept
             continue;
         }
 
+        RobotState candidate{};
+
         for (std::size_t i = 0; i < joint_count; ++i)
         {
-            state[i].position =
+            candidate[i].position =
                 Angle{
                     positions_[i].load(
                         std::memory_order_relaxed)};
 
-            state[i].velocity =
+            candidate[i].velocity =
                 AngularVelocity{
                     velocities_[i].load(
                         std::memory_order_relaxed)};
@@ -52,7 +54,10 @@ RobotState SnapshotBuffer::read() const noexcept
 
         if (before == after)
         {
-            return state;
+            state = candidate;
+            return true;
         }
     }
+
+    return false;
 }

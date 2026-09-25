@@ -11,10 +11,10 @@ class SnapshotBuffer
 public:
     void publish(const RobotState &state) noexcept;
 
-    RobotState read() const noexcept;
+    bool read(RobotState &state) const noexcept;
 
 private:
-    static constexpr std::size_t joint_count = 6;
+    static constexpr int max_read_attempts_ = 3;
 
     std::atomic<std::uint64_t> sequence_{0};
 

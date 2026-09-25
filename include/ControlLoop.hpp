@@ -36,11 +36,53 @@ private:
         std::chrono::steady_clock::time_point actual_end;
     };
 
+    void updateProcessorStatistics() noexcept;
+
+    void updatePeriodStatistics(
+        std::chrono::steady_clock::time_point cycle_start) noexcept;
+
+    void updateDelayStatistics(
+        bool behind_schedule,
+        std::chrono::steady_clock::time_point cycle_start,
+        std::chrono::steady_clock::time_point scheduled_start) noexcept;
+
+    void updateControlStatistics(
+        std::chrono::steady_clock::time_point control_start,
+        std::chrono::steady_clock::time_point control_end) noexcept;
+
+    void updateSnapshotStatistics(
+        std::chrono::steady_clock::time_point snapshot_start,
+        std::chrono::steady_clock::time_point snapshot_end) noexcept;
+
+    void updateInterCycleStatistics(
+        std::chrono::steady_clock::time_point cycle_start,
+        std::chrono::steady_clock::time_point cycle_end) noexcept;
+
+    void updateSchedulingStatistics(
+        double scheduling_delay_ms) noexcept;
+
+    void updateDeadlineStatistics(
+        std::chrono::steady_clock::time_point deadline,
+        std::chrono::steady_clock::time_point actual_end,
+        int measured_cycles) noexcept;
+
+    std::chrono::duration<double, std::milli>
+    updateExecutionStatistics(
+        std::chrono::steady_clock::time_point actual_start,
+        std::chrono::steady_clock::time_point actual_end) noexcept;
+
+    void updateMissStatistics(
+        std::chrono::steady_clock::time_point actual_end,
+        std::chrono::steady_clock::time_point deadline,
+        double scheduling_delay_ms,
+        double execution_ms) noexcept;
+
     std::chrono::duration<double, std::milli> update();
 
     Robot &robot_;
 
     SnapshotBuffer state_snapshot_;
+    mutable RobotState last_state_{};
 
     // The control loop runs every 1 ms.
     static constexpr auto control_period_ =
@@ -82,6 +124,8 @@ private:
     int scheduling_misses_{0};
     int execution_misses_{0};
     int combined_misses_{0};
+
+    mutable int snapshot_read_failures_{0};
 
     int delay_under_100us_{0};
     int delay_100us_to_1ms_{0};
