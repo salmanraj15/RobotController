@@ -45,7 +45,7 @@ The scheduler architecture now separates:
 
 - Platform-independent scheduling interface
 - Portable scheduler implementation
-- Platform-specific scheduler implementations
+- Platform-specific scheduler implementations for Windows and Linux
 - Control-loop logic
 
 The current architecture is:
@@ -55,9 +55,9 @@ The current architecture is:
                            ▲
                            │
                 PortableControlScheduler
-                           ▲
-                           │
-                 WindowsControlScheduler
+                    ▲               ▲
+                    │               │
+       WindowsControlScheduler   LinuxControlScheduler
 
 ControlLoop ──────────────► IControlScheduler
 ```
@@ -68,6 +68,8 @@ Scheduler creation is isolated behind:
 ControlSchedulerFactory
           │
           ├── WindowsControlScheduler
+          │
+          ├── LinuxControlScheduler
           │
           └── PortableControlScheduler
 ```
@@ -98,6 +100,7 @@ The project currently contains:
 - A control scheduler interface
 - A portable control scheduler
 - A Windows control scheduler
+- A Linux control scheduler
 - A scheduler factory for platform-specific scheduler selection
 - Fixed-size atomic state snapshots
 - 1 kHz timing instrumentation
@@ -124,7 +127,19 @@ PortableControlScheduler
 IControlScheduler
 ```
 
+On Linux, the scheduler follows the same abstraction and uses Linux's monotonic clock for absolute cycle waiting:
+
+```text
+LinuxControlScheduler
+        ↓
+PortableControlScheduler
+        ↓
+IControlScheduler
+```
+
 `WindowsControlScheduler` reuses the portable scheduler's scheduling timeline but uses a Windows waitable timer for cycle waiting.
+
+`LinuxControlScheduler` reuses the same scheduling timeline and uses `CLOCK_MONOTONIC` with `clock_nanosleep(..., TIMER_ABSTIME, ...)` for absolute cycle waiting.
 
 The scheduler maintains the absolute control-cycle timeline independently from the operating-system wait mechanism.
 
@@ -143,6 +158,28 @@ advance scheduling timeline
 ```
 
 Windows-specific real-time mechanisms beyond the waitable timer will be introduced in later stages.
+
+### Linux Scheduler
+
+The Linux scheduler implementation provides the Linux-specific waiting mechanism while keeping the control-loop logic platform-independent.
+
+The current Linux implementation uses:
+
+```text
+scheduled cycle time
+        ↓
+map to CLOCK_MONOTONIC
+        ↓
+clock_nanosleep(..., TIMER_ABSTIME, ...)
+        ↓
+advance scheduling timeline
+```
+
+The scheduler captures a `CLOCK_MONOTONIC` starting point and maps the portable scheduler's elapsed time onto that clock. This avoids assuming that `std::chrono::steady_clock` and Linux's monotonic clock share the same epoch.
+
+Interrupted sleeps are retried when `clock_nanosleep()` returns `EINTR`.
+
+The Linux scheduler has been implemented, but it has **not been tested on a Linux system yet**. Linux thread affinity, real-time scheduling policy, and priority configuration are intentionally left for later stages.
 
 ## Current Simulation Model
 
@@ -564,6 +601,7 @@ RobotController/
 │   ├── SafetyLayer.hpp
 │   ├── SimulatedMotor.hpp
 │   ├── SnapshotBuffer.hpp
+│   ├── LinuxControlScheduler.hpp
 │   └── WindowsControlScheduler.hpp
 │
 └── src/
@@ -668,14 +706,14 @@ The development process emphasizes:
 - [x] Windows scheduler implementation boundary
 - [x] Scheduler factory for platform-specific selection
 - [x] Windows waitable-timer scheduling
+- [x] Linux scheduler implementation
 - [x] Windows desktop scheduler investigated
 - [x] Measured Windows scheduler/wake-up jitter
 - [x] Established that the tested Windows configuration does not provide deterministic hard-real-time 1 kHz behavior
 
 ### Next
 
-- [ ] Deterministic 1 kHz control-loop design across a real-time-oriented environment
-- [ ] Linux scheduler implementation
+- [ ] Linux real-time scheduling configuration
 - [ ] Real-time verification
     - [ ] Linux/PREEMPT_RT
 - [ ] Real-time-oriented data structures
