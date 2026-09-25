@@ -9,6 +9,9 @@ public:
         std::chrono::milliseconds period);
 
     void reset() override;
+    void onControlThreadStart() noexcept override;
+    int currentProcessor() const noexcept override;
+    double maxWakeLateness() const noexcept override;
 
     TimePoint waitForNextCycle() override;
 

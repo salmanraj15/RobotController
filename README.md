@@ -188,44 +188,102 @@ Both schedulers maintain the same absolute scheduling timeline so that schedulin
 
 Testing on Windows continues to show an important limitation of the current scheduling approach.
 
-A 2.5 second simulation was executed with 2,500 control cycles. The latest representative Windows waitable-timer run produced:
+A 2.5 second simulation was executed with 2,500 control cycles. Representative Windows waitable-timer runs showed:
 
-- Real execution time: 2.51882 s
+- Average cycle period close to 1 ms
+- Maximum cycle periods in the approximately 16-20 ms range
+- Maximum control execution below 1 ms
+- Maximum snapshot time below 1 ms
+- The majority of cycles starting late
+- Deadline misses classified as scheduling-related rather than execution-related
+
+One representative run produced:
+
+- Real execution time: 2.52689 s
 - Simulated time: 2.5 s
-- Average cycle period: 0.999658 ms
-- Minimum cycle period: 0.0013 ms
-- Maximum cycle period: 16.4885 ms
-- Maximum execution time: 0.2718 ms
-- Maximum control time: 0.2698 ms
-- Maximum snapshot time: 0.02 ms
-- Delayed cycles: 2244
-- Deadline misses: 2245
-- Maximum scheduling delay: 16.4124 ms
-- Maximum schedule backlog: 15.4124 ms
-- Cycles with at least 1 ms backlog: 2045
-- Minimum deadline margin: -15.4224 ms
+- Average cycle period: 1.0028 ms
+- Minimum cycle period: 0.0014 ms
+- Maximum cycle period: 16.7987 ms
+- Maximum execution time: 0.2073 ms
+- Maximum control time: 0.2058 ms
+- Maximum snapshot time: 0.0338 ms
+- Maximum inter-cycle gap: 16.7959 ms
+- Delayed cycles: 2241
+- Deadline misses: 2242
+- Scheduling misses: 2242
+- Execution misses: 0
+- Combined misses: 0
+- Maximum scheduling delay: 16.4324 ms
+- Maximum scheduler wake lateness: 16.4294 ms
+- Maximum schedule backlog: 15.4324 ms
+- Cycles with at least 1 ms backlog: 2043
+- Minimum deadline margin: -15.4468 ms
+- Processor changes: 0
 
 These measurements are representative Windows runs and will vary between executions.
 
-The results show that the controller and simulator execution work remains below the 1 ms cycle budget. The measured maximum control time was 0.2698 ms and the maximum total control-loop execution time was 0.2718 ms.
+The measurements separate the control workload from scheduling latency. The controller and simulator execution work remain below the 1 ms cycle budget, while the large timing spikes occur between control executions.
 
-However, the Windows scheduling environment introduces significant timing variation at the 1 ms resolution required by a deterministic real-time control loop.
+The measured maximum scheduler wake lateness was 16.4294 ms while the maximum scheduling delay was 16.4324 ms, a difference of only 0.0030 ms in that run. This provides strong evidence that, in the tested configuration, the dominant source of the large deadline failures is the Windows timer wake-up and scheduling path rather than the controller workload.
 
-A delayed cycle does not necessarily mean that the control work itself exceeded its deadline. A cycle can start late and still complete before its one-millisecond deadline.
+### Lessons learned / observations
 
-The control loop therefore also measures deadline misses. A deadline miss is recorded when a cycle finishes after its scheduled start time plus the 1 ms control period.
+The Windows timing experiments produced several important observations:
 
-This separates scheduling delay from control execution time and provides a clearer measurement of whether the control cycle completed within its allowed time window.
+1. **The controller workload is not currently the limiting factor. Scheduling latency is.**
 
-When the thread wakes later than its scheduled time, the scheduler can find that the next scheduled time is already in the past. This can produce a long cycle period followed by a very short cycle period.
+   The measured controller execution time remained below the 1 ms cycle budget. Deadline misses were classified as scheduling-related in the representative runs, with no execution-only misses.
 
-The control loop intentionally executes every requested cycle rather than skipping delayed cycles. The simulation timestep remains fixed at 1 ms, independent of wall-clock scheduling delay.
+2. **Timer expiration does not guarantee immediate CPU execution.**
 
-The `IControlScheduler` interface defines the scheduler boundary, while the concrete scheduler owns the scheduling timeline and returns the scheduled start time for the cycle it releases.
+   A Windows timer can reach its expiration point while the control thread still has to wait before it actually executes. The important measurement is therefore not only timer expiration, but the difference between the scheduled cycle time and the actual control-thread start time.
 
-Scheduling delay and backlog are calculated explicitly from the actual start and that cycle's scheduled start.
+3. **Windows scheduling/wake-up latency dominates the observed 1 kHz deadline failures.**
 
-Backlog measures lateness beyond one full control period, so a 1.4 ms scheduling delay corresponds to 0.4 ms of schedule backlog.
+   The largest timing spikes occurred between control executions rather than inside `robot_.update()`.
+
+4. **The 100 µs timer-to-spin transition helps only at a smaller time scale.**
+
+   The hybrid Windows scheduler sleeps until the final 100 µs and then busy-spins. This can improve the final wake-up precision, but the dominant observed delays were on the order of many milliseconds, much larger than the 100 µs spin window.
+
+5. **CPU affinity eliminates migration but does not eliminate the large timing spikes.**
+
+   The control thread initially showed processor migration between logical processors. Pinning it to one logical processor reduced processor changes to zero, but large scheduling delays remained. Therefore, thread migration was not the primary cause of the large timing spikes.
+
+6. **The large timing spikes occur between control executions.**
+
+   The maximum inter-cycle gap closely followed the maximum cycle-period spike. This confirms that the missing time is primarily outside the controller's execution path.
+
+7. **The Windows waitable-timer wake-up measurement closely matches scheduling delay.**
+
+   In the representative run:
+
+   ```text
+   Maximum scheduler wake lateness: 16.4294 ms
+   Maximum scheduling delay:         16.4324 ms
+                                    ─────────
+   Difference:                       0.0030 ms
+   ```
+
+   This close correspondence is strong evidence that the dominant timing variation in the tested configuration comes from the Windows timer wake-up/scheduling path.
+
+8. **The measured loop is a 1 kHz scheduled simulation, not a hard real-time loop.**
+
+   The average cycle period can remain close to 1 ms while individual cycles experience large delays. Average frequency therefore cannot be used as evidence of deterministic real-time behavior.
+
+#### Experiment summary
+
+| Experiment | Observation |
+|---|---|
+| Normal Windows waitable timer | Large scheduling jitter |
+| Higher thread priority | No meaningful improvement in the tested run |
+| 100 µs hybrid timer + spin | Only small improvement; large delays remained |
+| CPU affinity | Processor migration eliminated, jitter remained |
+| Execution measurement | Control execution remained below 1 ms |
+| Inter-cycle gap measurement | Large gaps occurred between control executions |
+| Scheduler wake-lateness measurement | Closely matched scheduling delay |
+
+These experiments are considered sufficient to establish the current Windows timing limitation. Further tuning of the same desktop scheduling path is not currently the focus of the project. The next stage is to evaluate the scheduler architecture on Linux and investigate real-time-oriented execution environments.
 
 ### Lesson learned
 
@@ -254,6 +312,7 @@ Achieving deterministic 1 ms behavior requires additional real-time consideratio
 This does not mean that a 1 kHz control loop cannot run on Windows. The current results show that the loop can maintain an average period close to 1 ms, but the normal Windows scheduling environment does not provide the deterministic timing behavior required for a hard real-time guarantee in this implementation.
 
 The scheduler abstraction provides a boundary where Windows- and Linux-specific timing mechanisms can be evaluated independently.
+
 
 ## Threading and `std::jthread`
 
@@ -609,10 +668,13 @@ The development process emphasizes:
 - [x] Windows scheduler implementation boundary
 - [x] Scheduler factory for platform-specific selection
 - [x] Windows waitable-timer scheduling
+- [x] Windows desktop scheduler investigated
+- [x] Measured Windows scheduler/wake-up jitter
+- [x] Established that the tested Windows configuration does not provide deterministic hard-real-time 1 kHz behavior
 
 ### Next
 
-- [ ] Deterministic 1 kHz control-loop design
+- [ ] Deterministic 1 kHz control-loop design across a real-time-oriented environment
 - [ ] Linux scheduler implementation
 - [ ] Real-time verification
     - [ ] Linux/PREEMPT_RT

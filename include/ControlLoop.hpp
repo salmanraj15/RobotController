@@ -59,6 +59,9 @@ private:
     double max_execution_time_{0.0};
     double max_control_time_{0.0};
     double max_snapshot_time_{0.0};
+    double max_inter_cycle_gap_{0.0};
+
+    std::chrono::steady_clock::time_point previous_cycle_end_;
 
     double max_scheduling_delay_{0.0};
     double min_deadline_margin_{0.0};
@@ -70,5 +73,22 @@ private:
 
     double max_backlog_{0.0};
     int backlog_cycles_{0};
+
+    int consecutive_delayed_cycles_{0};
+    int max_consecutive_delayed_cycles_{0};
+
     int deadline_misses_{0};
+
+    int scheduling_misses_{0};
+    int execution_misses_{0};
+    int combined_misses_{0};
+
+    int delay_under_100us_{0};
+    int delay_100us_to_1ms_{0};
+    int delay_1ms_to_5ms_{0};
+    int delay_5ms_to_10ms_{0};
+    int delay_over_10ms_{0};
+
+    int processor_changes_{0};
+    int previous_processor_{-1};
 };

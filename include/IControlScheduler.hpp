@@ -12,6 +12,10 @@ public:
 
     virtual void reset() = 0;
 
+    virtual void onControlThreadStart() noexcept = 0;
+    virtual int currentProcessor() const noexcept = 0;
+    virtual double maxWakeLateness() const noexcept = 0;
+
     virtual TimePoint waitForNextCycle() = 0;
 
     virtual bool hasBacklog(

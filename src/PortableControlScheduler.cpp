@@ -14,6 +14,21 @@ void PortableControlScheduler::reset()
     next_cycle_ = Clock::now();
 }
 
+void PortableControlScheduler::onControlThreadStart() noexcept
+{
+    // Nothing special on the portable scheduler.
+}
+
+int PortableControlScheduler::currentProcessor() const noexcept
+{
+    return -1;
+}
+
+double PortableControlScheduler::maxWakeLateness() const noexcept
+{
+    return 0.0;
+}
+
 PortableControlScheduler::TimePoint
 PortableControlScheduler::waitForNextCycle()
 {
