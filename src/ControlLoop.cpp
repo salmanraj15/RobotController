@@ -5,11 +5,13 @@
 
 ControlLoop::ControlLoop(
     Robot &robot,
-    IControlScheduler &scheduler)
+    IControlScheduler &scheduler,
+    CanCommandBuffer &can_commands,
+    CanStateBuffer &can_state)
     : robot_{robot},
       scheduler_{scheduler},
-      previous_cycle_{std::chrono::steady_clock::now()},
-      previous_cycle_end_{std::chrono::steady_clock::now()}
+      can_commands_{can_commands},
+      can_state_{can_state}
 {
 }
 
@@ -289,11 +291,25 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
         cycle_start,
         scheduled_start);
 
-    // Run the actual control work.
     const auto control_start =
         std::chrono::steady_clock::now();
 
+    JointCommand can_command;
+
+    if (can_commands_.read(can_command))
+    {
+        // CAN currently controls joint 1.
+        robot_.setJointTargetPosition(
+            JointIndex{0},
+            can_command.target_position);
+    }
+
     robot_.update(dt_);
+
+    const RobotState robot_state =
+        robot_.state();
+
+    can_state_.publish(robot_state[0]);
 
     const auto control_end =
         std::chrono::steady_clock::now();

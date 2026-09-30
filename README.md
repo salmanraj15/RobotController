@@ -107,6 +107,11 @@ The project currently contains:
 - Last-known-good state fallback for failed snapshot reads
 - 1 kHz timing instrumentation
 - Separate control execution time from scheduling latency
+- Simulated CAN transport abstraction
+- CAN command and state codecs
+- Fixed-size CAN command and state buffers
+- Dedicated CAN communication thread
+- Bidirectional simulated CAN command/state flow
 - C++20 build configuration using CMake and Ninja
 
 ### Current Scheduler Architecture
@@ -439,6 +444,83 @@ This removes the mutex from the snapshot publication path while keeping the snap
 
 The snapshot design is currently an evaluated synchronization approach rather than a final hard real-time guarantee. Its behavior still needs dedicated tests and evaluation under a real-time-oriented environment.
 
+## CAN Communication
+
+The project now includes a simulated CAN communication layer for exchanging joint commands and joint state.
+
+The current communication architecture is:
+
+```text
+                    SimulatedCan
+                         |
+                         v
+                CanCommunication
+                   thread
+                  /       \
+         commands         state
+             |              ^
+             v              |
+      CanCommandBuffer  CanStateBuffer
+             |              ^
+             v              |
+              1 kHz ControlLoop
+                     |
+                     v
+                   Robot
+```
+
+The CAN transport is intentionally separated from the 1 kHz control loop.
+
+`SimulatedCan` represents the transport layer and currently uses a mutex-protected queue to simulate CAN transmission and reception. It is therefore not treated as a hard real-time component.
+
+The real-time boundary is provided by fixed-size communication buffers:
+
+- `CanCommandBuffer`
+- `CanStateBuffer`
+
+The control loop reads the latest command from `CanCommandBuffer` and publishes the current joint state through `CanStateBuffer`.
+
+The communication thread handles transport operations independently of the control thread.
+
+### CAN Messages
+
+The current simulated protocol contains two message types:
+
+| Message | CAN ID | Payload |
+|---|---:|---|
+| Joint command | `0x100` | Target position |
+| Joint state | `0x200` | Position and velocity |
+
+Joint positions are encoded with a resolution of `0.01°`.
+
+Joint velocity is encoded with a resolution of `0.01°/s`.
+
+The command and state messages use separate codecs:
+
+```text
+JointCommandCodec
+        |
+        v
+    CAN 0x100
+
+JointStateCodec
+        |
+        v
+    CAN 0x200
+```
+
+This prevents a state frame from being interpreted as a command frame.
+
+### Communication Timing
+
+The simulated CAN communication thread currently processes communication at a nominal 1 ms period.
+
+The transport thread is deliberately kept separate from the 1 kHz control thread so that mutexes, queues, and transport-specific operations do not become part of the real-time control path.
+
+The current CAN implementation is a simulation and does not provide real CAN bus timing or hardware behavior.
+
+A future communication implementation can replace `SimulatedCan` through the `ICanInterface` abstraction.
+
 ## Strong Types
 
 Physical quantities are represented using separate C++ types rather than passing raw `double` values everywhere.
@@ -624,12 +706,20 @@ RobotController/
 │   ├── Angle.hpp
 │   ├── AngularAcceleration.hpp
 │   ├── AngularVelocity.hpp
+│   ├── CanCommandBuffer.hpp
+│   ├── CanCommunication.hpp
+│   ├── CanFrame.hpp
+│   ├── CanStateBuffer.hpp
 │   ├── ControlLoop.hpp
 │   ├── ControlSchedulerFactory.hpp
 │   ├── Duration.hpp
+│   ├── ICanInterface.hpp
 │   ├── IControlScheduler.hpp
 │   ├── Joint.hpp
+│   ├── JointCommandCodec.hpp
+│   ├── JointStateCodec.hpp
 │   ├── JointTypes.hpp
+│   ├── LinuxControlScheduler.hpp
 │   ├── MotorInterface.hpp
 │   ├── PDController.hpp
 │   ├── PDControllerConfig.hpp
@@ -637,25 +727,32 @@ RobotController/
 │   ├── Robot.hpp
 │   ├── RobotSimulator.hpp
 │   ├── SafetyLayer.hpp
+│   ├── SimulatedCan.hpp
 │   ├── SimulatedMotor.hpp
 │   ├── SnapshotBuffer.hpp
-│   ├── LinuxControlScheduler.hpp
 │   └── WindowsControlScheduler.hpp
 │
 └── src/
     ├── Angle.cpp
+    ├── CanCommandBuffer.cpp
+    ├── CanCommunication.cpp
+    ├── CanFrame.cpp
+    ├── CanStateBuffer.cpp
     ├── ControlLoop.cpp
     ├── ControlSchedulerFactory.cpp
     ├── Joint.cpp
+    ├── JointCommandCodec.cpp
+    ├── JointStateCodec.cpp
+    ├── LinuxControlScheduler.cpp
     ├── main.cpp
     ├── PDController.cpp
     ├── PortableControlScheduler.cpp
     ├── Robot.cpp
     ├── RobotSimulator.cpp
     ├── SafetyLayer.cpp
+    ├── SimulatedCan.cpp
     ├── SimulatedMotor.cpp
     ├── SnapshotBuffer.cpp
-    ├── LinuxControlScheduler.cpp
     └── WindowsControlScheduler.cpp
 ```
 
@@ -752,22 +849,26 @@ The development process emphasizes:
 - [x] Measured Windows scheduler/wake-up jitter
 - [x] Established that the tested Windows configuration does not provide deterministic hard-real-time 1 kHz behavior
 - [x] Linux real-time scheduling configuration
-
+- [x] Simulated CAN communication layer
+- [x] CAN command/state codecs
+- [x] Dedicated CAN communication thread
+- [x] Bounded CAN command/state buffers
 
 ### Next
 
+- [ ] Hardware CAN interface
+- [ ] Communication/network interface
 - [ ] Unit tests
-    - [ ] Joint and safety behavior
-    - [ ] PD controller behavior
-    - [ ] SnapshotBuffer behavior
-    - [ ] ControlLoop integration
+  - [ ] Joint and safety behavior
+  - [ ] PD controller behavior
+  - [ ] SnapshotBuffer behavior
+  - [ ] ControlLoop integration
 - [ ] Sanitizers and static analysis
 - [ ] Real-time memory and allocation audit
 - [ ] Profiling and performance analysis
 - [ ] Further C++20 features
-- [ ] Communication/network interface
 - [ ] Real-time verification
-    - [ ] Linux/PREEMPT_RT
+  - [ ] Linux/PREEMPT_RT
 - [ ] Final real-time validation and documentation
 
 ## License

@@ -1,6 +1,11 @@
 #include "ControlLoop.hpp"
 #include "ControlSchedulerFactory.hpp"
 #include "Robot.hpp"
+#include "SimulatedCan.hpp"
+#include "CanCommunication.hpp"
+#include "JointCommandCodec.hpp"
+#include "CanCommandBuffer.hpp"
+#include "CanStateBuffer.hpp"
 
 #include <chrono>
 #include <iostream>
@@ -9,22 +14,46 @@
 int main()
 {
     Robot robot;
+
     auto scheduler =
         createControlScheduler(
             std::chrono::milliseconds{1});
 
+    CanCommandBuffer can_commands;
+    CanStateBuffer can_state;
+
     ControlLoop control_loop{
         robot,
-        *scheduler};
+        *scheduler,
+        can_commands,
+        can_state};
 
-    robot.initializeJointPosition(JointIndex{0}, Angle{0.0});
-    robot.setJointTargetPosition(JointIndex{0}, Angle{90.0});
+    robot.initializeJointPosition(
+        JointIndex{0},
+        Angle{0.0});
+
+    SimulatedCan can;
+
+    JointCommand outgoing_command;
+    outgoing_command.target_position = Angle{90.0};
+
+    const CanFrame tx =
+        JointCommandCodec::encode(outgoing_command);
+
+    can.transmit(tx);
+
+    CanCommunication communication{
+        can,
+        can_commands,
+        can_state};
 
     constexpr int cycle_count = 2500;
 
     const auto start = std::chrono::steady_clock::now();
 
-    // Start the control thread.
+    // Start CAN communication before the control loop.
+    communication.start();
+
     control_loop.run(cycle_count);
 
     // Wait for the control loop to finish.
@@ -33,6 +62,8 @@ int main()
         std::this_thread::sleep_for(
             std::chrono::milliseconds{10});
     }
+
+    communication.stop();
 
     const RobotState state = control_loop.state();
 
@@ -55,6 +86,5 @@ int main()
     std::cout << "Simulated time: "
               << cycle_count * 0.001
               << " s\n";
-
     return 0;
 }

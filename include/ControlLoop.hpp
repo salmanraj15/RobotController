@@ -8,6 +8,8 @@
 #include "Robot.hpp"
 #include "SnapshotBuffer.hpp"
 #include "IControlScheduler.hpp"
+#include "CanCommandBuffer.hpp"
+#include "CanStateBuffer.hpp"
 
 // Runs the robot control loop at a fixed period.
 class ControlLoop
@@ -15,7 +17,9 @@ class ControlLoop
 public:
     ControlLoop(
         Robot &robot,
-        IControlScheduler &scheduler);
+        IControlScheduler &scheduler,
+        CanCommandBuffer &can_commands,
+        CanStateBuffer &can_state);
 
     void run(int cycle_count);
 
@@ -80,6 +84,9 @@ private:
     std::chrono::duration<double, std::milli> update();
 
     Robot &robot_;
+
+    CanCommandBuffer &can_commands_;
+    CanStateBuffer &can_state_;
 
     SnapshotBuffer state_snapshot_;
     mutable RobotState last_state_{};

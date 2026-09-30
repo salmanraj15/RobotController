@@ -23,6 +23,13 @@ add_executable(robot_controller
     src/WindowsControlScheduler.cpp
     src/ControlSchedulerFactory.cpp
     src/LinuxControlScheduler.cpp
+    src/CanFrame.cpp
+    src/SimulatedCan.cpp
+    src/JointCommandCodec.cpp
+    src/CanCommandBuffer.cpp
+    src/CanStateBuffer.cpp
+    src/CanCommunication.cpp
+    src/JointStateCodec.cpp
 )
 
 target_include_directories(robot_controller
