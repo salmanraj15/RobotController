@@ -36,9 +36,6 @@ void Robot::printState() const
 
         std::cout << "\nVelocity: "
                   << joints[i].velocity().degreesPerSecond();
-
-        std::cout << "\nTorque: "
-                  << joints[i].torque();
     }
 }
 

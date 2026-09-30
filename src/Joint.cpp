@@ -9,7 +9,6 @@ Joint::Joint(
     : position_{Angle{0.0}},
       command_{},
       velocity_{AngularVelocity{0.0}},
-      torque_{0.0},
       min_position_{min_position},
       max_position_{max_position},
       max_velocity_{max_velocity},
@@ -96,11 +95,6 @@ void Joint::simulate(AngularVelocity velocity, Angle position)
 {
     velocity_ = velocity;
     position_ = position;
-}
-
-double Joint::torque() const
-{
-    return torque_;
 }
 
 JointState Joint::state() const noexcept

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Angle.hpp"
-#include "Duration.hpp"
 #include "AngularVelocity.hpp"
 #include "AngularAcceleration.hpp"
 #include "JointTypes.hpp"
@@ -51,8 +50,6 @@ public:
     // Updates the joint's simulated physical state.
     void simulate(AngularVelocity velocity, Angle position);
 
-    double torque() const;
-
 private:
     // The joint's current simulated position.
     Angle position_;
@@ -62,8 +59,6 @@ private:
 
     // The joint's current simulated velocity.
     AngularVelocity velocity_;
-
-    double torque_;
 
     Angle min_position_;
     Angle max_position_;
