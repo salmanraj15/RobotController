@@ -1,0 +1,60 @@
+#pragma once
+
+#include <array>
+#include <cstddef>
+
+#include "robot_controller/core/Joint.hpp"
+#include "robot_controller/control/PDController.hpp"
+#include "robot_controller/safety/SafetyLayer.hpp"
+#include "robot_controller/control/PDControllerConfig.hpp"
+#include "robot_controller/motor/SimulatedMotor.hpp"
+#include "robot_controller/simulation/RobotSimulator.hpp"
+
+class Robot
+{
+public:
+    // Returns a snapshot of the current state of all joints.
+    RobotState state() const noexcept;
+
+    // Prints the current state of all joints.
+    void printState() const;
+
+    // Initializes a joint at the given position.
+    bool initializeJointPosition(JointIndex index, Angle position);
+
+    // Sets the target position for a joint.
+    bool setJointTargetPosition(JointIndex index, Angle target);
+
+    // Applies an acceleration command directly to a joint.
+    bool setJointAcceleration(JointIndex index, AngularAcceleration acceleration);
+
+    // Advances the simulation and updates all joints.
+    void update(Duration dt);
+
+private:
+    // The six simulated motors that drive the robot's joints.
+    std::array<SimulatedMotor, joint_count> motors_{};
+
+    // The six joints that make up the robot.
+    std::array<Joint, joint_count>
+        joints_{
+            Joint{Angle{-180.0}, Angle{180.0}, AngularVelocity{60.0}, AngularAcceleration{30.0}, motors_[0]},
+            Joint{Angle{-90.0}, Angle{90.0}, AngularVelocity{60.0}, AngularAcceleration{30.0}, motors_[1]},
+            Joint{Angle{-180.0}, Angle{180.0}, AngularVelocity{60.0}, AngularAcceleration{30.0}, motors_[2]},
+            Joint{Angle{-180.0}, Angle{180.0}, AngularVelocity{60.0}, AngularAcceleration{30.0}, motors_[3]},
+            Joint{Angle{-90.0}, Angle{90.0}, AngularVelocity{60.0}, AngularAcceleration{30.0}, motors_[4]},
+            Joint{Angle{-180.0}, Angle{180.0}, AngularVelocity{60.0}, AngularAcceleration{30.0}, motors_[5]}};
+
+    // Advances the physical simulation of the robot.
+    RobotSimulator simulator_{joints_};
+
+    // Calculates acceleration commands for the joints.
+    PDController controller_{
+        PDControllerConfig{
+            1.0,
+            0.5,
+            AngularAcceleration{30.0}}};
+
+    // Checks controller commands against the joint's safety limits.
+    SafetyLayer safety_layer_;
+};

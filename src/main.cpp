@@ -1,11 +1,11 @@
-#include "ControlLoop.hpp"
-#include "ControlSchedulerFactory.hpp"
-#include "Robot.hpp"
-#include "SimulatedCan.hpp"
-#include "CanCommunication.hpp"
-#include "JointCommandCodec.hpp"
-#include "CanCommandBuffer.hpp"
-#include "CanStateBuffer.hpp"
+#include "robot_controller/control/ControlLoop.hpp"
+#include "robot_controller/scheduler/ControlSchedulerFactory.hpp"
+#include "robot_controller/core/Robot.hpp"
+#include "robot_controller/communication/SimulatedCan.hpp"
+#include "robot_controller/communication/CanCommunication.hpp"
+#include "robot_controller/communication/JointCommandCodec.hpp"
+#include "robot_controller/communication/CanCommandBuffer.hpp"
+#include "robot_controller/communication/CanStateBuffer.hpp"
 
 #include <chrono>
 #include <iostream>

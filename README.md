@@ -28,6 +28,20 @@ Simulator
 
 The project is being developed incrementally, with each stage introducing relevant C++ concepts and robotics/control concepts.
 
+## Architecture
+
+The project is organized by responsibility:
+
+- `core` — fundamental robot and physical-state types
+- `control` — control algorithms and the real-time control loop
+- `safety` — safety constraints and validation
+- `motor` — motor interfaces and simulated motor implementation
+- `simulation` — simulated physical system
+- `scheduler` — platform-specific control-loop scheduling
+- `communication` — CAN transport, codecs, and communication buffers
+- `synchronization` — thread-safe state exchange mechanisms
+- `unit_tests` — automated tests
+
 ## Cross-Platform Requirement
 
 The application is intended to build and run on multiple operating systems, including:
@@ -702,58 +716,94 @@ RobotController/
 ├── README.md
 ├── .gitignore
 │
-├── include/
-│   ├── Angle.hpp
-│   ├── AngularAcceleration.hpp
-│   ├── AngularVelocity.hpp
-│   ├── CanCommandBuffer.hpp
-│   ├── CanCommunication.hpp
-│   ├── CanFrame.hpp
-│   ├── CanStateBuffer.hpp
-│   ├── ControlLoop.hpp
-│   ├── ControlSchedulerFactory.hpp
-│   ├── Duration.hpp
-│   ├── ICanInterface.hpp
-│   ├── IControlScheduler.hpp
-│   ├── Joint.hpp
-│   ├── JointCommandCodec.hpp
-│   ├── JointStateCodec.hpp
-│   ├── JointTypes.hpp
-│   ├── LinuxControlScheduler.hpp
-│   ├── MotorInterface.hpp
-│   ├── PDController.hpp
-│   ├── PDControllerConfig.hpp
-│   ├── PortableControlScheduler.hpp
-│   ├── Robot.hpp
-│   ├── RobotSimulator.hpp
-│   ├── SafetyLayer.hpp
-│   ├── SimulatedCan.hpp
-│   ├── SimulatedMotor.hpp
-│   ├── SnapshotBuffer.hpp
-│   └── WindowsControlScheduler.hpp
+├── include
+│   └── robot_controller
+│       │
+│       ├── core
+│       │   ├── Angle.hpp
+│       │   ├── Duration.hpp
+│       │   ├── AngularVelocity.hpp
+│       │   ├── AngularAcceleration.hpp
+│       │   ├── JointTypes.hpp
+│       │   ├── Joint.hpp
+│       │   └── Robot.hpp
+│       │
+│       ├── control
+│       │   ├── PDController.hpp
+│       │   ├── PDControllerConfig.hpp
+│       │   └── ControlLoop.hpp
+│       │
+│       ├── safety
+│       │   └── SafetyLayer.hpp
+│       │
+│       ├── motor
+│       │   ├── MotorInterface.hpp
+│       │   └── SimulatedMotor.hpp
+│       │
+│       ├── simulation
+│       │   └── RobotSimulator.hpp
+│       │
+│       ├── scheduler
+│       │   ├── IControlScheduler.hpp
+│       │   ├── PortableControlScheduler.hpp
+│       │   ├── WindowsControlScheduler.hpp
+│       │   ├── LinuxControlScheduler.hpp
+│       │   └── ControlSchedulerFactory.hpp
+│       │
+│       ├── communication
+│       │   ├── CanFrame.hpp
+│       │   ├── ICanInterface.hpp
+│       │   ├── SimulatedCan.hpp
+│       │   ├── JointCommandCodec.hpp
+│       │   ├── JointStateCodec.hpp
+│       │   ├── CanCommandBuffer.hpp
+│       │   ├── CanStateBuffer.hpp
+│       │   └── CanCommunication.hpp
+│       │
+│       └── synchronization
+│           └── SnapshotBuffer.hpp
 │
-└── src/
-    ├── Angle.cpp
-    ├── CanCommandBuffer.cpp
-    ├── CanCommunication.cpp
-    ├── CanFrame.cpp
-    ├── CanStateBuffer.cpp
-    ├── ControlLoop.cpp
-    ├── ControlSchedulerFactory.cpp
-    ├── Joint.cpp
-    ├── JointCommandCodec.cpp
-    ├── JointStateCodec.cpp
-    ├── LinuxControlScheduler.cpp
-    ├── main.cpp
-    ├── PDController.cpp
-    ├── PortableControlScheduler.cpp
-    ├── Robot.cpp
-    ├── RobotSimulator.cpp
-    ├── SafetyLayer.cpp
-    ├── SimulatedCan.cpp
-    ├── SimulatedMotor.cpp
-    ├── SnapshotBuffer.cpp
-    └── WindowsControlScheduler.cpp
+├── src
+│   ├── core
+│   │   ├── Angle.cpp
+│   │   ├── Joint.cpp
+│   │   └── Robot.cpp
+│   │
+│   ├── control
+│   │   ├── PDController.cpp
+│   │   └── ControlLoop.cpp
+│   │
+│   ├── safety
+│   │   └── SafetyLayer.cpp
+│   │
+│   ├── motor
+│   │   └── SimulatedMotor.cpp
+│   │
+│   ├── simulation
+│   │   └── RobotSimulator.cpp
+│   │
+│   ├── scheduler
+│   │   ├── PortableControlScheduler.cpp
+│   │   ├── WindowsControlScheduler.cpp
+│   │   ├── LinuxControlScheduler.cpp
+│   │   └── ControlSchedulerFactory.cpp
+│   │
+│   ├── communication
+│   │   ├── CanFrame.cpp
+│   │   ├── SimulatedCan.cpp
+│   │   ├── JointCommandCodec.cpp
+│   │   ├── JointStateCodec.cpp
+│   │   ├── CanCommandBuffer.cpp
+│   │   ├── CanStateBuffer.cpp
+│   │   └── CanCommunication.cpp
+│   │
+│   ├── synchronization
+│   │   └── SnapshotBuffer.cpp
+│   │
+│   └── main.cpp
+│
+└── tests
+    └── ...
 ```
 
 ## Building

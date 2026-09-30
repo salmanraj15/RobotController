@@ -11,28 +11,28 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(robot_controller
     src/main.cpp
-    src/Joint.cpp
-    src/Robot.cpp
-    src/PDController.cpp
-    src/SafetyLayer.cpp
-    src/SimulatedMotor.cpp
-    src/RobotSimulator.cpp
-    src/ControlLoop.cpp
-    src/SnapshotBuffer.cpp
-    src/PortableControlScheduler.cpp
-    src/WindowsControlScheduler.cpp
-    src/ControlSchedulerFactory.cpp
-    src/LinuxControlScheduler.cpp
-    src/CanFrame.cpp
-    src/SimulatedCan.cpp
-    src/JointCommandCodec.cpp
-    src/CanCommandBuffer.cpp
-    src/CanStateBuffer.cpp
-    src/CanCommunication.cpp
-    src/JointStateCodec.cpp
+    src/core/Joint.cpp
+    src/core/Robot.cpp
+    src/control/PDController.cpp
+    src/safety/SafetyLayer.cpp
+    src/motor/SimulatedMotor.cpp
+    src/simulation/RobotSimulator.cpp
+    src/control/ControlLoop.cpp
+    src/synchronization/SnapshotBuffer.cpp
+    src/scheduler/PortableControlScheduler.cpp
+    src/scheduler/WindowsControlScheduler.cpp
+    src/scheduler/ControlSchedulerFactory.cpp
+    src/scheduler/LinuxControlScheduler.cpp
+    src/communication/CanFrame.cpp
+    src/communication/SimulatedCan.cpp
+    src/communication/JointCommandCodec.cpp
+    src/communication/CanCommandBuffer.cpp
+    src/communication/CanStateBuffer.cpp
+    src/communication/CanCommunication.cpp
+    src/communication/JointStateCodec.cpp
 )
 
 target_include_directories(robot_controller
     PRIVATE
-        include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
