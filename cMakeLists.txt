@@ -36,3 +36,41 @@ target_include_directories(robot_controller
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+include(FetchContent)
+
+FetchContent_Declare(
+    googletest
+    URL https://github.com/google/googletest/archive/refs/tags/v1.17.0.zip
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+
+FetchContent_MakeAvailable(googletest)
+
+enable_testing()
+
+add_executable(robot_controller_tests
+    tests/core/JointTests.cpp
+    tests/core/RobotTests.cpp
+
+    src/core/Joint.cpp
+    src/core/Robot.cpp
+    src/motor/SimulatedMotor.cpp
+    src/simulation/RobotSimulator.cpp
+    src/control/PDController.cpp
+    src/safety/SafetyLayer.cpp
+)
+
+target_link_libraries(robot_controller_tests
+    PRIVATE
+        GTest::gtest_main
+)
+
+target_include_directories(robot_controller_tests
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+include(GoogleTest)
+
+gtest_discover_tests(robot_controller_tests)

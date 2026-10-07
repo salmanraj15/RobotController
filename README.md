@@ -1,6 +1,6 @@
 # Robot Controller
 
-A C++20 project for building a simulated 6-DOF robotic arm controller from the ground up.
+A C++20 project for building a simulated 6-DOF robotic arm controller with CAN bus communication, real-time control, safety, and simulation from the ground up.
 
 The goal is to develop a small but realistic robotics control system while learning modern C++20 design, simulation, safety, real-time programming, and software architecture.
 
@@ -40,7 +40,53 @@ The project is organized by responsibility:
 - `scheduler` — platform-specific control-loop scheduling
 - `communication` — CAN transport, codecs, and communication buffers
 - `synchronization` — thread-safe state exchange mechanisms
-- `unit_tests` — automated tests
+- `tests` — automated tests
+
+## Testing
+
+The project uses GoogleTest for unit testing.
+
+The current test suite covers the core joint and robot behavior, including:
+
+- Joint initialization and default state
+- Joint position limits
+- Target position commands
+- Joint acceleration limits in both directions
+- Simulated joint state
+- Robot joint initialization
+- Invalid joint index handling
+- Robot acceleration commands and limits
+- Controller-to-simulation behavior
+- Joint velocity limits
+- Joint position limits
+- Holding position when the target is reached
+
+The tests also cover the complete robot control path:
+
+```text
+Target Position
+      ↓
+PD Controller
+      ↓
+Safety Layer
+      ↓
+Joint / Motor
+      ↓
+Robot Simulator
+      ↓
+Updated Joint State
+```
+
+The test suite is built with CMake and executed through CTest.
+
+Run the tests with:
+
+```powershell
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+The current test suite contains 26 passing tests.
 
 ## Cross-Platform Requirement
 
