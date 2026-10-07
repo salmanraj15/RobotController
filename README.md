@@ -86,7 +86,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The current test suite contains 26 passing tests.
+The current test suite contains 35 passing tests.
 
 ## Cross-Platform Requirement
 

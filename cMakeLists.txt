@@ -52,6 +52,7 @@ enable_testing()
 add_executable(robot_controller_tests
     tests/core/JointTests.cpp
     tests/core/RobotTests.cpp
+    tests/control/PDControllerTests.cpp
 
     src/core/Joint.cpp
     src/core/Robot.cpp
