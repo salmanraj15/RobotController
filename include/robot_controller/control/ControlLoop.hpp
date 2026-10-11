@@ -110,11 +110,11 @@ private:
     std::chrono::duration<double, std::milli> update();
 
     Robot &robot_;
-
     CanCommandBuffer &can_commands_;
     CanStateBuffer &can_state_;
 
     SnapshotBuffer state_snapshot_;
+    mutable std::mutex state_mutex_;
     mutable RobotState last_state_{};
 
     // The control loop runs every 1 ms.

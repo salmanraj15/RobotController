@@ -99,6 +99,7 @@ add_executable(robot_controller_tests
     tests/safety/SafetyLayerTests.cpp
     tests/simulation/RobotSimulatorTests.cpp
     tests/control/ControlLoopTests.cpp
+    tests/synchronization/SnapshotBufferTests.cpp
 
     # Core implementation used by the tests.
     src/core/Joint.cpp

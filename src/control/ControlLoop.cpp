@@ -542,6 +542,8 @@ void ControlLoop::printTimingStatistics() const
 
 RobotState ControlLoop::state() const noexcept
 {
+    std::lock_guard<std::mutex> lock{state_mutex_};
+
     RobotState state = last_state_;
 
     if (state_snapshot_.read(state))

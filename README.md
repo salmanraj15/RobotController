@@ -544,9 +544,10 @@ The snapshot buffer uses:
 
 - A fixed-size array of atomic values
 - An atomic sequence counter
-- Acquire/release synchronization
+- Sequentially consistent atomic operations
 - Sequence validation to detect concurrent updates
 - A bounded number of read attempts
+- A last-known-good state fallback when a read fails
 
 The sequence counter uses an even value for a stable snapshot and an odd value while the writer is updating the snapshot.
 
@@ -1011,21 +1012,20 @@ The development process emphasizes:
 - [x] Unit tests
   - [x] Joint and safety behavior
   - [x] PD controller behavior
-  - [x] SnapshotBuffer behavior
+  - [x] SnapshotBuffer publication and concurrent-read consistency
   - [x] ControlLoop integration and lifecycle
 
 ### Next
+
 - [ ] Real-time verification
-  - [ ] Linux scheduler testing
-  - [ ] Linux/PREEMPT_RT evaluation
+  - [ ] Test Linux scheduler behavior on a Linux system
+  - [ ] Evaluate Linux/PREEMPT_RT
 - [ ] Hardware CAN interface
 - [ ] Communication/network interface
 - [ ] Sanitizers and static analysis
 - [ ] Real-time memory and allocation audit
 - [ ] Profiling and performance analysis
 - [ ] Further C++20 features
-- [ ] Real-time verification
-  - [ ] Linux/PREEMPT_RT
 - [ ] Final real-time validation and documentation
 
 ## License
