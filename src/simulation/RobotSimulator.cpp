@@ -104,8 +104,9 @@ void RobotSimulator::update(Duration dt)
         }
         else
         {
-            // With no acceleration, use the current velocity.
-            displacement = initial_velocity * elapsed_seconds;
+            // With no acceleration, use the velocity after applying the speed limit.
+            // This keeps displacement consistent with the velocity saved in the state.
+            displacement = final_velocity * elapsed_seconds;
         }
 
         double new_position = initial_position + displacement;

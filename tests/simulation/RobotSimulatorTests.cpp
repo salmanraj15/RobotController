@@ -403,3 +403,63 @@ TEST_F(RobotSimulatorTests, IntegratesPositionWhenNegativeVelocityLimitIsReached
         1e-9);
 }
 
+// A joint should reverse direction correctly when starting at its
+// maximum negative speed and accelerating in the positive direction.
+TEST_F(RobotSimulatorTests, ReversesDirectionFromMinimumVelocity)
+{
+    // Start at the negative velocity limit, away from position limits.
+    joints[0].simulate(
+        AngularVelocity{-60.0},
+        Angle{0.0});
+
+    // Positive acceleration slows the negative motion, then reverses it.
+    ASSERT_TRUE(
+        joints[0].setAcceleration(
+            AngularAcceleration{30.0}));
+
+    simulator.update(Duration{4.0});
+
+    const JointState state = joints[0].state();
+
+    // Final velocity: -60 + (30 * 4) = 60 degrees per second.
+    EXPECT_DOUBLE_EQ(
+        state.velocity.degreesPerSecond(),
+        60.0);
+
+    // The joint travels backward for 2 seconds, then forward for 2 seconds.
+    // The equal distances cancel, leaving the position at zero.
+    EXPECT_NEAR(
+        state.position.degrees(),
+        0.0,
+        1e-9);
+}
+
+// A joint starting above its velocity limit should not continue
+// moving at an unconstrained speed when acceleration is zero.
+TEST_F(RobotSimulatorTests, ClampsInitialVelocityBeforeIntegratingPosition)
+{
+    // Start inside the position limits but above the configured speed limit.
+    joints[0].simulate(
+        AngularVelocity{70.0},
+        Angle{0.0});
+
+    // With no acceleration, the joint should move at its limited speed.
+    ASSERT_TRUE(
+        joints[0].setAcceleration(
+            AngularAcceleration{0.0}));
+
+    simulator.update(Duration{1.0});
+
+    const JointState state = joints[0].state();
+
+    // The final velocity should respect the 60 degrees-per-second limit.
+    EXPECT_DOUBLE_EQ(
+        state.velocity.degreesPerSecond(),
+        60.0);
+
+    // Position should advance at the limited speed, not the initial 70.
+    EXPECT_DOUBLE_EQ(
+        state.position.degrees(),
+        60.0);
+}
+
