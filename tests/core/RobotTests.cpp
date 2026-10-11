@@ -131,8 +131,9 @@ TEST_F(RobotTests, UpdatesJointTowardTarget)
 
     EXPECT_DOUBLE_EQ(
         state[0].position.degrees(),
-        30.0);
+        15.0);
 }
+
 
 // The simulator should stop a joint at its position limit.
 TEST_F(RobotTests, StopsAtMaximumJointPosition)

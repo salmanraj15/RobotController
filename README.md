@@ -57,7 +57,8 @@ The current test suite covers:
 - Robot acceleration commands and limits
 - PD controller behavior
 - Safety layer validation
-- Robot simulator acceleration and motion integration
+- Constant-acceleration position integration
+- Velocity integration from commanded acceleration
 - Positive and negative velocity limiting
 - Minimum and maximum position limit enforcement
 - Zero and negative time-step handling
@@ -87,7 +88,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-**Current status: 51 tests passing, 0 failures.**
+**Current status: 54 tests passing, 0 failures.**
 
 ### SafetyLayer
 
@@ -108,6 +109,8 @@ Coverage includes:
 
 - Keeping stationary joints at rest
 - Integrating acceleration into velocity and position
+- Correct position integration when a velocity limit is reached during a time step
+- Maintaining position integration when starting at the positive or negative velocity limit
 - Limiting positive and negative velocity
 - Enforcing minimum and maximum joint position limits
 - Leaving joint state unchanged for zero or negative time steps
@@ -299,18 +302,31 @@ Each joint currently uses:
 - Acceleration: degrees/second²
 - Time step: seconds
 
-The simulator uses semi-implicit Euler integration:
+The simulator calculates velocity using:
 
-```text
-velocity = velocity + acceleration × dt
-position = position + velocity × dt
-```
+\`\`\`text
+new velocity = initial velocity + acceleration × dt
+\`\`\`
 
-Using the newly calculated velocity for the position update gives the current simulation its semi-implicit Euler behavior.
+Position is calculated using the constant-acceleration equation:
 
-The simulator also enforces each joint's configured velocity and position limits.
+\`\`\`text
+new position = initial position
+             + initial velocity × dt
+             + 0.5 × acceleration × dt²
+\`\`\`
+
+The simulator calculates position using constant-acceleration kinematics when the velocity limit is not reached during the time step. If a velocity limit is reached partway through the time step, the simulator calculates the distance traveled while accelerating and adds the distance traveled at the limited velocity for the remainder of the step. If the joint is already at its velocity limit and acceleration would push it farther beyond that limit, position is advanced at the limited velocity.
+
+For example, a joint starting from rest with an acceleration of 10 deg/s² over 0.5 seconds reaches a velocity of 5 deg/s and moves 1.25 degrees.
+
+The simulator enforces each joint's configured velocity and position limits. When a position limit is reached or crossed, the joint is stopped at that limit and its motor acceleration command is cleared.
+
+The simulator also enforces each joint's configured velocity and position limits. When a position limit is reached, the joint is stopped and its motor acceleration is cleared.
 
 The `RobotSimulator` is responsible for advancing the simulated physical state. The `Joint` stores its physical state and exposes the limits and actuator command needed by the simulator.
+
+The simulation remains a simplified model. More realistic actuator behavior and interactions between acceleration, velocity saturation, and position limits can be introduced and tested in later stages.
 
 ## Timing and Windows Scheduling
 
@@ -718,14 +734,15 @@ The simulator currently:
 
 - Reads the acceleration commanded to each motor
 - Integrates joint velocity
-- Integrates joint position
+- Calculates position using the constant-acceleration equation
 - Enforces velocity limits
 - Enforces position limits
+- Clears motor acceleration when a position limit is reached
 - Updates the simulated joint state
 
 The simulator currently uses a fixed 1 ms timestep supplied by the robot update path.
 
-The simulation is intentionally simple at this stage. More realistic actuator and mechanical behavior can be introduced later.
+The simulation remains a simplified model. Velocity saturation is handled for the tested acceleration scenarios, but further tests are needed for cases such as deceleration through zero velocity and unusual initial states. More realistic actuator and mechanical behavior can be introduced in later stages.
 
 ## Current Robot
 
