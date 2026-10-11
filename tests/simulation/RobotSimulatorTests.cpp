@@ -492,3 +492,55 @@ TEST_F(RobotSimulatorTests, ClampsInitialVelocityBeforeApplyingAcceleration)
         45.0);
 }
 
+// An initial velocity below the negative limit should be clamped
+// before positive acceleration is applied.
+TEST_F(RobotSimulatorTests, ClampsInitialNegativeVelocityBeforeApplyingAcceleration)
+{
+    // Start below the configured minimum velocity of -60 degrees per second.
+    joints[0].simulate(
+        AngularVelocity{-70.0},
+        Angle{0.0});
+
+    // Positive acceleration should act on the clamped initial velocity.
+    ASSERT_TRUE(
+        joints[0].setAcceleration(
+            AngularAcceleration{30.0}));
+
+    simulator.update(Duration{1.0});
+
+    const JointState state = joints[0].state();
+
+    // Clamp -70 to -60 first, then apply +30 * 1 second.
+    EXPECT_DOUBLE_EQ(
+        state.velocity.degreesPerSecond(),
+        -30.0);
+
+    // Average velocity is (-60 + -30) / 2 = -45 degrees per second.
+    EXPECT_DOUBLE_EQ(
+        state.position.degrees(),
+        -45.0);
+}
+
+// A zero-duration update should not normalize an invalid initial velocity,
+// because no simulated time has elapsed.
+TEST_F(RobotSimulatorTests, ZeroDurationPreservesOutOfRangeInitialVelocity)
+{
+    // Deliberately create a state above the configured velocity limit.
+    joints[0].simulate(
+        AngularVelocity{70.0},
+        Angle{10.0});
+
+    // Request zero elapsed time.
+    simulator.update(Duration{0.0});
+
+    const JointState state = joints[0].state();
+
+    // With no elapsed time, neither position nor velocity should change.
+    EXPECT_DOUBLE_EQ(
+        state.position.degrees(),
+        10.0);
+
+    EXPECT_DOUBLE_EQ(
+        state.velocity.degreesPerSecond(),
+        70.0);
+}

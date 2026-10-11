@@ -55,13 +55,23 @@ add_executable(robot_controller_tests
     tests/control/PDControllerTests.cpp
     tests/safety/SafetyLayerTests.cpp
     tests/simulation/RobotSimulatorTests.cpp
+    tests/control/ControlLoopTests.cpp
 
+    # Core implementation used by the tests.
     src/core/Joint.cpp
     src/core/Robot.cpp
     src/motor/SimulatedMotor.cpp
     src/simulation/RobotSimulator.cpp
     src/control/PDController.cpp
     src/safety/SafetyLayer.cpp
+
+    # Control-loop implementation and its shared-state snapshot.
+    src/control/ControlLoop.cpp
+    src/synchronization/SnapshotBuffer.cpp
+
+    # CAN buffers used by ControlLoopTests.
+    src/communication/CanCommandBuffer.cpp
+    src/communication/CanStateBuffer.cpp
 )
 
 target_link_libraries(robot_controller_tests

@@ -46,24 +46,21 @@ The project is organized by responsibility:
 
 The project uses GoogleTest for unit testing, with CMake and CTest for building and running the test suite.
 
-The current test suite covers:
+The test suite covers:
 
-- Joint initialization and default state
-- Joint position and velocity limits
-- Target position commands and holding position
-- Joint acceleration limits in both directions
-- Simulated joint state
-- Robot joint initialization and invalid joint index handling
-- Robot acceleration commands and limits
-- PD controller behavior
-- Safety layer validation
-- Constant-acceleration position integration
-- Velocity integration from commanded acceleration
-- Positive and negative velocity limiting
-- Minimum and maximum position limit enforcement
+- Joint initialization, state, and position/velocity limits
+- Joint acceleration limits and command handling
+- PD controller behavior and target-position control
+- Safety-layer acceleration validation
+- Robot initialization, joint access, and acceleration commands
+- Simulated joint dynamics and constant-acceleration integration
+- Velocity saturation and position-limit enforcement
 - Zero and negative time-step handling
-- Large time-step position-limit enforcement
-- Acceleration reset when a joint reaches a position limit
+- Snapshot publication, bounded reads, and state consistency
+- Control-loop execution and completed-cycle tracking
+- CAN command handling and CAN state publication
+- Control-loop lifecycle management, including repeated runs, worker joining, and stop requests
+- Non-finite acceleration validation, including NaN and positive and negative infinity
 
 The tests also cover the complete robot control path:
 
@@ -81,14 +78,16 @@ Robot Simulator
 Updated Joint State
 ```
 
-Run the test suite with:
+Control-loop lifecycle tests verify that a second run is rejected until the previous worker has been joined, a new run can start after `wait()`, stop requests are handled between cycles, and `wait()` can be called repeatedly.
+
+Run the full test suite with:
 
 ```powershell
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-**Current status: 57 tests passing, 0 failures.**
+**Current status: 82 tests passing, 0 failures** in the latest local test run.
 
 ### SafetyLayer
 
@@ -96,10 +95,10 @@ Tests verify that requested acceleration is checked against each joint's configu
 
 Coverage includes:
 
-- Accepting acceleration within the limit
+- Accepting zero acceleration and values within the configured limits
 - Accepting acceleration exactly at either limit
-- Rejecting acceleration beyond the positive limit
-- Rejecting acceleration beyond the negative limit
+- Rejecting acceleration beyond the positive or negative limit
+- Rejecting non-finite acceleration values, including NaN and positive and negative infinity
 
 ### RobotSimulator
 
@@ -201,6 +200,11 @@ The project currently contains:
 - Fixed-size CAN command and state buffers
 - Dedicated CAN communication thread
 - Bidirectional simulated CAN command/state flow
+- Explicit control-loop lifecycle states
+- Cooperative control-loop stop requests
+- Explicit worker joining through `wait()`
+- Guarded repeated execution after the previous worker has been joined
+- Tests for control-loop lifecycle and edge cases
 - C++20 build configuration using CMake and Ninja
 
 ### Current Scheduler Architecture
@@ -322,8 +326,6 @@ For example, a joint starting from rest with an acceleration of 10 deg/s² over 
 
 The simulator enforces each joint's configured velocity and position limits. When a position limit is reached or crossed, the joint is stopped at that limit and its motor acceleration command is cleared.
 
-The simulator also enforces each joint's configured velocity and position limits. When a position limit is reached, the joint is stopped and its motor acceleration is cleared.
-
 The `RobotSimulator` is responsible for advancing the simulated physical state. The `Joint` stores its physical state and exposes the limits and actuator command needed by the simulator.
 
 The simulation remains a simplified model. More realistic actuator behavior and interactions between acceleration, velocity saturation, and position limits can be introduced and tested in later stages.
@@ -350,41 +352,40 @@ Both schedulers maintain the same absolute scheduling timeline so that schedulin
 
 Testing on Windows continues to show an important limitation of the current scheduling approach.
 
-A 2.5 second simulation was executed with 2,500 control cycles. Representative Windows waitable-timer runs showed:
+A recent Windows run completed 2,500 control cycles with a simulated duration of 2.5 seconds. The measured results were:
 
-- Average cycle period close to 1 ms
-- Maximum cycle periods in the approximately 16-20 ms range
-- Maximum control execution below 1 ms
-- Snapshot timing is normally small, but individual measurements can be inflated by OS scheduling/preemption
-- The majority of cycles starting late
-- Deadline misses classified as scheduling-related rather than execution-related
-
-One representative run produced:
-
-- Real execution time: 2.52689 s
+- Real execution time: 2.5316 s
 - Simulated time: 2.5 s
-- Average cycle period: 1.0028 ms
-- Minimum cycle period: 0.0014 ms
-- Maximum cycle period: 16.7987 ms
-- Maximum execution time: 0.2073 ms
-- Maximum control time: 0.2058 ms
-- Maximum snapshot time: 0.0338 ms
-- Maximum inter-cycle gap: 16.7959 ms
-- Delayed cycles: 2241
-- Deadline misses: 2242
-- Scheduling misses: 2242
+- Average cycle period: 1.00494 ms
+- Minimum cycle period: 0.002 ms
+- Maximum cycle period: 17.8972 ms
+- Maximum execution time: 0.3119 ms
+- Maximum control time: 0.3045 ms
+- Maximum snapshot time: 0.0883 ms
+- Maximum inter-cycle gap: 17.8944 ms
+- Delayed cycles: 2,323
+- Deadline misses: 2,323
+- Scheduling misses: 2,323
 - Execution misses: 0
 - Combined misses: 0
-- Maximum scheduling delay: 16.4324 ms
-- Maximum scheduler wake lateness: 16.4294 ms
-- Maximum schedule backlog: 15.4324 ms
-- Cycles with at least 1 ms backlog: 2043
-- Minimum deadline margin: -15.4468 ms
+- Maximum scheduling delay: 17.1411 ms
+- Maximum scheduler wake lateness: 17.1394 ms
+- Maximum schedule backlog: 16.1411 ms
+- Cycles with at least 1 ms backlog: 2,162
+- Minimum deadline margin: -16.1512 ms
+- Maximum consecutive delayed cycles: 17
 - Processor changes: 0
+- Completed cycles: 2,500
 
-These measurements are representative Windows runs and will vary between executions.
+These measurements are specific to this Windows run and will vary with the execution environment and system load.
 
-A later run after the bounded SnapshotBuffer redesign produced:
+The average cycle period remained close to the nominal 1 ms target, but individual cycles experienced substantial delays. The measured control execution time remained below 1 ms, while the maximum cycle period approached 18 ms. All reported deadline misses were classified as scheduling misses, with no execution misses.
+
+The close correspondence between maximum scheduler wake lateness and maximum scheduling delay is consistent with the timer wake-up and thread scheduling path being a major source of timing variation. Further profiling and repeated experiments would be needed to quantify the contribution of each source.
+
+**Earlier comparison run — after the SnapshotBuffer redesign**
+
+A previous run after the bounded SnapshotBuffer redesign produced:
 
 - Real execution time: 2.50502 s
 - Simulated time: 2.5 s
@@ -398,10 +399,6 @@ A later run after the bounded SnapshotBuffer redesign produced:
 - Completed cycles: 2,500
 
 The larger maximum snapshot measurement in this run is treated as scheduler/preemption-sensitive timing data rather than evidence that the snapshot algorithm itself requires 1.69 ms of CPU time. The snapshot operation remains fixed-size and bounded, and further conclusions will be based on repeated measurements and profiling rather than a single maximum sample.
-
-The measurements separate the control workload from scheduling latency. The controller and simulator execution work remain below the 1 ms cycle budget, while the large timing spikes occur between control executions.
-
-The measured maximum scheduler wake lateness was 16.4294 ms while the maximum scheduling delay was 16.4324 ms, a difference of only 0.0030 ms in that run. This provides strong evidence that, in the tested configuration, the dominant source of the large deadline failures is the Windows timer wake-up and scheduling path rather than the controller workload.
 
 ### Lessons learned / observations
 
@@ -433,16 +430,15 @@ The Windows timing experiments produced several important observations:
 
 7. **The Windows waitable-timer wake-up measurement closely matches scheduling delay.**
 
-   In the representative run:
+   In the latest run:
 
-   ```text
-   Maximum scheduler wake lateness: 16.4294 ms
-   Maximum scheduling delay:         16.4324 ms
-                                    ─────────
-   Difference:                       0.0030 ms
-   ```
+     ```text
+      Maximum scheduler wake lateness: 17.1394 ms
+      Maximum scheduling delay:        17.1411 ms
+      Difference:                       0.0017 ms
+     ```
 
-   This close correspondence is strong evidence that the dominant timing variation in the tested configuration comes from the Windows timer wake-up/scheduling path.
+   This close correspondence is consistent with the timer wake-up and thread scheduling path being a major source of timing variation. Further profiling would be needed to establish the contribution of individual sources.
 
 8. **The measured loop is a 1 kHz scheduled simulation, not a hard real-time loop.**
 
@@ -470,7 +466,7 @@ The scheduler maintains an absolute 1 ms scheduling timeline while the platform-
 
 On Windows, the waitable timer provides the waiting mechanism, but normal Windows thread scheduling can still introduce significant delays between the scheduled and actual cycle start times.
 
-The measured controller and simulator execution time is well below the 1 ms cycle budget. The timing variation therefore comes primarily from the execution environment rather than the control workload.
+In the representative runs, measured control execution remained below the 1 ms cycle budget. Overall execution and snapshot measurements can include operating-system scheduling and preemption effects, so they should be interpreted separately from the time spent executing the control workload. The timing variation therefore comes primarily from the execution environment rather than the control workload.
 
 This experiment demonstrates the distinction between:
 
@@ -510,6 +506,24 @@ This introduces:
 - Concurrent access to control-loop information
 - Atomic synchronization
 
+The control loop manages the worker's lifecycle explicitly using three states:
+
+- `Idle`: a new run may be started.
+- `Running`: a worker run has been started and has not yet reported completion.
+- `Finished`: the worker has completed its run, but has not yet been joined.
+
+A new run is permitted only after the previous worker has been joined and the lifecycle has returned to `Idle`.
+
+The lifecycle operations behave as follows:
+
+- `run(cycle_count)` starts a worker only when the lifecycle is `Idle` and `cycle_count` is positive. Calls made in other lifecycle states do not start another run.
+- `requestStop()` requests cooperative cancellation. The worker checks for the request between control cycles, so a stop request does not interrupt a cycle already in progress or guarantee immediate termination.
+- `wait()` joins the worker when joinable and returns the lifecycle to `Idle`.
+- A stop request made before a new run is cleared when that run starts.
+- A stop request does not guarantee that a blocked scheduler wait returns immediately.
+
+A completed worker must be joined with `wait()` before another run can begin. Lifecycle operations are synchronized to prevent `run()` and `wait()` from manipulating the worker concurrently.
+
 ## Thread Synchronization
 
 The control loop and monitoring code run on separate threads, so shared data requires explicit synchronization.
@@ -544,7 +558,7 @@ The reader performs at most three attempts. If no consistent snapshot is obtaine
 
 This removes the mutex from the snapshot publication path while keeping the snapshot bounded and allocation-free.
 
-The snapshot design is currently an evaluated synchronization approach rather than a final hard real-time guarantee. Its behavior still needs dedicated tests and evaluation under a real-time-oriented environment.
+The snapshot design is an evaluated synchronization approach, not a guarantee of hard real-time behavior. Snapshot behavior is covered by the existing test suite; further stress testing and evaluation in a real-time-oriented environment remain future work.
 
 ## CAN Communication
 
@@ -691,7 +705,7 @@ acceleration command =
 
 The controller generates a requested acceleration command.
 
-The `SafetyLayer` provides a separate validation step that checks the requested command against the Joint's configured acceleration limit.
+The `SafetyLayer` provides a separate validation step that checks the requested command against the joint's configured acceleration limit.
 
 The PD controller therefore provides both:
 
@@ -740,9 +754,11 @@ The simulator currently:
 - Clears motor acceleration when a position limit is reached
 - Updates the simulated joint state
 
-The simulator currently uses a fixed 1 ms timestep supplied by the robot update path.
+The simulator uses a fixed 1 ms timestep supplied by the robot update path. Non-positive time steps are ignored without changing the joint state.
 
-The simulation remains a simplified model. Velocity saturation is handled for the tested acceleration scenarios, but further tests are needed for cases such as deceleration through zero velocity and unusual initial states. More realistic actuator and mechanical behavior can be introduced in later stages.
+For positive time steps, the simulator advances joint velocity and position using the configured acceleration and enforces the applicable velocity and position limits. When a position limit is reached or crossed, the joint is stopped at that limit and its motor acceleration command is cleared.
+
+Velocity saturation is covered for the tested acceleration scenarios, but further tests are needed for cases such as deceleration through zero velocity and unusual initial states. More realistic actuator and mechanical behavior can be introduced in later stages.
 
 ## Current Robot
 
@@ -992,16 +1008,18 @@ The development process emphasizes:
 - [x] CAN command/state codecs
 - [x] Dedicated CAN communication thread
 - [x] Bounded CAN command/state buffers
+- [x] Unit tests
+  - [x] Joint and safety behavior
+  - [x] PD controller behavior
+  - [x] SnapshotBuffer behavior
+  - [x] ControlLoop integration and lifecycle
 
 ### Next
-
+- [ ] Real-time verification
+  - [ ] Linux scheduler testing
+  - [ ] Linux/PREEMPT_RT evaluation
 - [ ] Hardware CAN interface
 - [ ] Communication/network interface
-- [ ] Unit tests
-  - [ ] Joint and safety behavior
-  - [ ] PD controller behavior
-  - [ ] SnapshotBuffer behavior
-  - [ ] ControlLoop integration
 - [ ] Sanitizers and static analysis
 - [ ] Real-time memory and allocation audit
 - [ ] Profiling and performance analysis

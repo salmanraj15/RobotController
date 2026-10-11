@@ -10,8 +10,9 @@ RobotSimulator::RobotSimulator(std::span<Joint> joints)
 
 void RobotSimulator::update(Duration dt)
 {
-    // Ignore negative time steps so the simulation never runs backward.
-    if (dt.seconds() < 0.0)
+    // Ignore non-positive time steps so simulation state remains unchanged.
+    // No elapsed time means there is nothing to integrate or normalize.
+    if (dt.seconds() <= 0.0)
     {
         return;
     }

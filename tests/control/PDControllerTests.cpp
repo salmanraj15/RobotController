@@ -173,3 +173,69 @@ TEST_F(PDControllerTests, KeepsNegativeAccelerationAtLimit)
         acceleration.degreesPerSecondSquared(),
         -30.0);
 }
+
+// Position error and velocity feedback should both contribute
+// to the final acceleration command.
+TEST_F(PDControllerTests, CombinesPositionErrorAndVelocityFeedback)
+{
+    const JointCommand command{
+        Angle{50.0}};
+
+    const JointState actual_state{
+        Angle{40.0},
+        AngularVelocity{4.0}};
+
+    const AngularAcceleration acceleration =
+        controller.calculate(command, actual_state);
+
+    // Position contribution: 1.0 * (50 - 40) = 10.
+    // Velocity contribution: 0.5 * 4 = 2.
+    // Final acceleration: 10 - 2 = 8 degrees per second squared.
+    EXPECT_DOUBLE_EQ(
+        acceleration.degreesPerSecondSquared(),
+        8.0);
+}
+
+// Combined positive feedback above the limit should be clamped
+// to the configured maximum acceleration.
+TEST_F(PDControllerTests, ClampsCombinedPositiveAcceleration)
+{
+    const JointCommand command{
+        Angle{100.0}};
+
+    const JointState actual_state{
+        Angle{0.0},
+        AngularVelocity{-10.0}};
+
+    const AngularAcceleration acceleration =
+        controller.calculate(command, actual_state);
+
+    // Position contribution: 1.0 * (100 - 0) = 100.
+    // Negative velocity contributes another +5.
+    // The result is 105, so the controller must clamp it to +30.
+    EXPECT_DOUBLE_EQ(
+        acceleration.degreesPerSecondSquared(),
+        30.0);
+}
+
+// Combined negative feedback below the limit should be clamped
+// to the configured minimum acceleration.
+TEST_F(PDControllerTests, ClampsCombinedNegativeAcceleration)
+{
+    const JointCommand command{
+        Angle{-100.0}};
+
+    const JointState actual_state{
+        Angle{0.0},
+        AngularVelocity{10.0}};
+
+    const AngularAcceleration acceleration =
+        controller.calculate(command, actual_state);
+
+    // Position contribution: 1.0 * (-100 - 0) = -100.
+    // Positive velocity contributes another -5.
+    // The result is -105, so the controller must clamp it to -30.
+    EXPECT_DOUBLE_EQ(
+        acceleration.degreesPerSecondSquared(),
+        -30.0);
+}

@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <limits>
 
 #include "robot_controller/safety/SafetyLayer.hpp"
 #include "robot_controller/motor/SimulatedMotor.hpp"
@@ -70,4 +71,49 @@ TEST_F(SafetyLayerTests, AcceptsNegativeAccelerationAtLimit)
         safety_layer.validate(
             joint,
             AngularAcceleration{-30.0}));
+}
+
+// Zero acceleration is a valid request within the joint's limits.
+TEST_F(SafetyLayerTests, AcceptsZeroAcceleration)
+{
+    EXPECT_TRUE(
+        safety_layer.validate(
+            joint,
+            AngularAcceleration{0.0}));
+}
+
+// NaN is not a valid acceleration command and must be rejected.
+TEST_F(SafetyLayerTests, RejectsNaNAcceleration)
+{
+    const double not_a_number =
+        std::numeric_limits<double>::quiet_NaN();
+
+    EXPECT_FALSE(
+        safety_layer.validate(
+            joint,
+            AngularAcceleration{not_a_number}));
+}
+
+// Positive infinity must not be accepted as a valid command.
+TEST_F(SafetyLayerTests, RejectsPositiveInfiniteAcceleration)
+{
+    const double positive_infinity =
+        std::numeric_limits<double>::infinity();
+
+    EXPECT_FALSE(
+        safety_layer.validate(
+            joint,
+            AngularAcceleration{positive_infinity}));
+}
+
+// Negative infinity must not be accepted as a valid command.
+TEST_F(SafetyLayerTests, RejectsNegativeInfiniteAcceleration)
+{
+    const double negative_infinity =
+        -std::numeric_limits<double>::infinity();
+
+    EXPECT_FALSE(
+        safety_layer.validate(
+            joint,
+            AngularAcceleration{negative_infinity}));
 }

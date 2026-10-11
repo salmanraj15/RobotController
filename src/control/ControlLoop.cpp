@@ -375,23 +375,61 @@ std::chrono::duration<double, std::milli> ControlLoop::update()
 
 void ControlLoop::run(int cycle_count)
 {
+    std::lock_guard<std::mutex> lock{lifecycle_mutex_};
+
+    // Don't replace a worker until wait() has joined it.
+    if (lifecycle_state_.load() != LifecycleState::Idle)
+    {
+        return;
+    }
+
+    // Invalid cycle counts don't start a worker.
+    if (cycle_count <= 0)
+    {
+        return;
+    }
+
+    stop_requested_.store(false);
+    lifecycle_state_.store(LifecycleState::Running);
+
     thread_ = std::jthread(
         [this, cycle_count](std::stop_token stop_token)
         {
             scheduler_.onControlThreadStart();
 
-            for (int i = 0;
-                 i < cycle_count;
-                 ++i)
+            for (int i = 0; i < cycle_count; ++i)
             {
-                if (stop_token.stop_requested())
+                if (stop_token.stop_requested() ||
+                    stop_requested_.load())
                 {
                     break;
                 }
 
                 update();
             }
+
+            // Keep the worker's completion state separate from thread joining.
+            lifecycle_state_.store(LifecycleState::Finished);
         });
+}
+
+void ControlLoop::requestStop() noexcept
+{
+    // This flag can be set even while wait() is joining the worker.
+    stop_requested_.store(true);
+}
+
+void ControlLoop::wait()
+{
+    std::lock_guard<std::mutex> lock{lifecycle_mutex_};
+
+    if (thread_.joinable())
+    {
+        thread_.join();
+    }
+
+    // A new run is allowed only after the previous worker has been joined.
+    lifecycle_state_.store(LifecycleState::Idle);
 }
 
 void ControlLoop::printTimingStatistics() const

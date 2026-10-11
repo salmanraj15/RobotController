@@ -2,6 +2,8 @@
 
 #include <atomic>
 #include <chrono>
+#include <mutex>
+#include <stop_token>
 #include <thread>
 
 #include "robot_controller/core/Duration.hpp"
@@ -23,6 +25,12 @@ public:
 
     void run(int cycle_count);
 
+    // Wait until the control thread has finished its work.
+    void wait();
+
+    // Ask the worker to stop after its current cycle finishes.
+    void requestStop() noexcept;
+
     void printTimingStatistics() const;
 
     RobotState state() const noexcept;
@@ -32,6 +40,24 @@ public:
     int completedCycles() const noexcept;
 
 private:
+    enum class LifecycleState
+    {
+        Idle,
+        Running,
+        Finished
+    };
+
+    // Serialize run() and wait() so they cannot modify the worker together.
+    std::mutex lifecycle_mutex_;
+
+    // The worker updates its state without needing lifecycle_mutex_.
+    std::atomic<LifecycleState> lifecycle_state_{LifecycleState::Idle};
+
+    // A stop request is checked between control cycles.
+    std::atomic<bool> stop_requested_{false};
+
+    std::jthread thread_;
+
     struct CycleTiming
     {
         std::chrono::steady_clock::time_point scheduled_start;
@@ -99,8 +125,6 @@ private:
 
     IControlScheduler &scheduler_;
     std::chrono::steady_clock::time_point previous_cycle_;
-
-    std::jthread thread_;
 
     double min_period_{0.0};
     double max_period_{0.0};
