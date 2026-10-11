@@ -300,3 +300,106 @@ TEST_F(RobotSimulatorTests, HoldsMinimumVelocityWhenAcceleratingFurther)
         state.position.degrees(),
         -60.0);
 }
+
+// A joint should reverse direction when acceleration opposes its initial velocity.
+TEST_F(RobotSimulatorTests, ReversesDirectionAfterDeceleratingToZero)
+{
+    // Start moving forward at 10 degrees per second.
+    joints[0].simulate(
+        AngularVelocity{10.0},
+        Angle{0.0});
+
+    // Negative acceleration slows the joint, brings it to rest,
+    // and then makes it move in the negative direction.
+    ASSERT_TRUE(
+        joints[0].setAcceleration(
+            AngularAcceleration{-20.0}));
+
+    // The joint reaches zero velocity after 0.5 seconds.
+    // During the full second, it moves forward first, then backward.
+    simulator.update(Duration{1.0});
+
+    const JointState state = joints[0].state();
+
+    // Final velocity: 10 + (-20 * 1) = -10 degrees per second.
+    EXPECT_DOUBLE_EQ(
+        state.velocity.degreesPerSecond(),
+        -10.0);
+
+    // First half:  +2.5 degrees.
+    // Second half: -2.5 degrees.
+    // Net displacement is zero.
+    EXPECT_NEAR(
+        state.position.degrees(),
+        0.0,
+        1e-9);
+}
+
+// A joint should reverse direction correctly when deceleration starts
+// at the positive velocity limit.
+TEST_F(RobotSimulatorTests, ReversesDirectionFromMaximumVelocity)
+{
+    // Start at the positive velocity limit, away from position limits.
+    joints[0].simulate(
+        AngularVelocity{60.0},
+        Angle{0.0});
+
+    // Strong negative acceleration will slow the joint and reverse it.
+    ASSERT_TRUE(
+        joints[0].setAcceleration(
+            AngularAcceleration{-30.0}));
+
+    simulator.update(Duration{4.0});
+
+    const JointState state = joints[0].state();
+
+    // Final velocity: 60 + (-30 * 4) = -60 degrees per second.
+    EXPECT_DOUBLE_EQ(
+        state.velocity.degreesPerSecond(),
+        -60.0);
+
+    // The joint travels forward for 2 seconds, then backward for 2 seconds.
+    // The equal distances cancel, leaving the position at zero.
+    EXPECT_NEAR(
+        state.position.degrees(),
+        0.0,
+        1e-9);
+}
+
+// Position integration should remain correct when deceleration reaches
+// the negative velocity limit before the time step ends.
+TEST_F(RobotSimulatorTests, IntegratesPositionWhenNegativeVelocityLimitIsReached)
+{
+    // Start near the upper position limit to leave room for negative travel.
+    ASSERT_TRUE(
+        joints[0].initializePosition(Angle{80.0}));
+
+    joints[0].simulate(
+        AngularVelocity{0.0},
+        Angle{80.0});
+
+    // Accelerate in the negative direction.
+    ASSERT_TRUE(
+        joints[0].setAcceleration(
+            AngularAcceleration{-30.0}));
+
+    simulator.update(Duration{3.0});
+
+    const JointState state = joints[0].state();
+
+    // It takes 2 seconds to reach -60 degrees per second.
+    EXPECT_DOUBLE_EQ(
+        state.velocity.degreesPerSecond(),
+        -60.0);
+
+    // First 2 seconds: accelerate from 0 to -60 degrees per second.
+    // Displacement = 0 * 2 + 0.5 * (-30) * 2^2 = -60 degrees.
+    //
+    // Final 1 second: travel at the capped velocity of -60 degrees
+    // per second, adding another -60 degrees.
+    EXPECT_NEAR(
+        state.position.degrees(),
+        -40.0,
+        1e-9);
+}
+

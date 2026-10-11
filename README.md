@@ -88,7 +88,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-**Current status: 54 tests passing, 0 failures.**
+**Current status: 57 tests passing, 0 failures.**
 
 ### SafetyLayer
 
