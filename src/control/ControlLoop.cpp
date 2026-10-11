@@ -9,9 +9,9 @@ ControlLoop::ControlLoop(
     CanCommandBuffer &can_commands,
     CanStateBuffer &can_state)
     : robot_{robot},
-      scheduler_{scheduler},
       can_commands_{can_commands},
-      can_state_{can_state}
+      can_state_{can_state},
+      scheduler_{scheduler}
 {
 }
 

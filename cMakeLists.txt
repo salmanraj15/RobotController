@@ -9,6 +9,49 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+
+option(ROBOT_CONTROLLER_WARNINGS "Enable additional compiler warnings" ON)
+option(ROBOT_CONTROLLER_SANITIZERS "Enable address and undefined behavior sanitizers" OFF)
+
+function(enable_project_warnings target)
+    if(NOT ROBOT_CONTROLLER_WARNINGS)
+        return()
+    endif()
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+       OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(${target} PRIVATE
+            -Wall
+            -Wextra
+            -Wpedantic
+            -Wshadow
+            -Wconversion
+        )
+    elseif(MSVC)
+        target_compile_options(${target} PRIVATE /W4)
+    endif()
+endfunction()
+
+function(enable_project_sanitizers target)
+    if(NOT ROBOT_CONTROLLER_SANITIZERS)
+        return()
+    endif()
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+       OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(${target} PRIVATE
+            -fsanitize=address,undefined
+            -fno-omit-frame-pointer
+        )
+        target_link_options(${target} PRIVATE
+            -fsanitize=address,undefined
+        )
+    else()
+        message(FATAL_ERROR
+            "ROBOT_CONTROLLER_SANITIZERS requires GCC or Clang.")
+    endif()
+endfunction()
+
 add_executable(robot_controller
     src/main.cpp
     src/core/Joint.cpp
@@ -79,10 +122,16 @@ target_link_libraries(robot_controller_tests
         GTest::gtest_main
 )
 
+enable_project_warnings(robot_controller)
+enable_project_sanitizers(robot_controller)
+
 target_include_directories(robot_controller_tests
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+enable_project_warnings(robot_controller_tests)
+enable_project_sanitizers(robot_controller_tests)
 
 include(GoogleTest)
 
