@@ -19,13 +19,22 @@ void RobotSimulator::update(Duration dt)
     for (auto &joint : joints_)
     {
         const double initial_position = joint.position().degrees();
-        const double initial_velocity =
-            joint.velocity().degreesPerSecond();
-        const double acceleration =
-            joint.motorAcceleration().degreesPerSecondSquared();
-        const double elapsed_seconds = dt.seconds();
+
+        // Read the configured speed limit before integrating the motion.
         const double max_velocity =
             joint.maxVelocity().degreesPerSecond();
+
+        // Recover safely if the starting state is already outside the speed limits.
+        // Normal control should prevent this, but the simulator should remain robust.
+        const double initial_velocity = std::clamp(
+            joint.velocity().degreesPerSecond(),
+            -max_velocity,
+            max_velocity);
+
+        const double acceleration =
+            joint.motorAcceleration().degreesPerSecondSquared();
+
+        const double elapsed_seconds = dt.seconds();
 
         // Calculate the velocity we'd reach if acceleration acted
         // for the entire time step.

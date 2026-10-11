@@ -463,3 +463,32 @@ TEST_F(RobotSimulatorTests, ClampsInitialVelocityBeforeIntegratingPosition)
         60.0);
 }
 
+// An out-of-range initial velocity should be clamped before
+// acceleration is applied during the simulation step.
+TEST_F(RobotSimulatorTests, ClampsInitialVelocityBeforeApplyingAcceleration)
+{
+    // Start above the configured maximum velocity of 60 degrees per second.
+    joints[0].simulate(
+        AngularVelocity{70.0},
+        Angle{0.0});
+
+    // Negative acceleration should reduce the clamped initial velocity.
+    ASSERT_TRUE(
+        joints[0].setAcceleration(
+            AngularAcceleration{-30.0}));
+
+    simulator.update(Duration{1.0});
+
+    const JointState state = joints[0].state();
+
+    // Option A clamps 70 to 60 first, then applies -30 * 1 second.
+    EXPECT_DOUBLE_EQ(
+        state.velocity.degreesPerSecond(),
+        30.0);
+
+    // Average velocity during this step is (60 + 30) / 2 = 45 degrees/s.
+    EXPECT_DOUBLE_EQ(
+        state.position.degrees(),
+        45.0);
+}
+
