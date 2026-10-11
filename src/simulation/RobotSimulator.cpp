@@ -7,6 +7,12 @@ RobotSimulator::RobotSimulator(std::span<Joint> joints)
 
 void RobotSimulator::update(Duration dt)
 {
+    // Ignore invalid time steps so the simulation never runs backward.
+    if (dt.seconds() < 0.0)
+    {
+        return;
+    }
+    
     for (auto& joint : joints_)
     {
         const double new_velocity =

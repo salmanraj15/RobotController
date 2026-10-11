@@ -44,22 +44,25 @@ The project is organized by responsibility:
 
 ## Testing
 
-The project uses GoogleTest for unit testing.
+The project uses GoogleTest for unit testing, with CMake and CTest for building and running the test suite.
 
-The current test suite covers the core joint and robot behavior, including:
+The current test suite covers:
 
 - Joint initialization and default state
-- Joint position limits
-- Target position commands
+- Joint position and velocity limits
+- Target position commands and holding position
 - Joint acceleration limits in both directions
 - Simulated joint state
-- Robot joint initialization
-- Invalid joint index handling
+- Robot joint initialization and invalid joint index handling
 - Robot acceleration commands and limits
-- Controller-to-simulation behavior
-- Joint velocity limits
-- Joint position limits
-- Holding position when the target is reached
+- PD controller behavior
+- Safety layer validation
+- Robot simulator acceleration and motion integration
+- Positive and negative velocity limiting
+- Minimum and maximum position limit enforcement
+- Zero and negative time-step handling
+- Large time-step position-limit enforcement
+- Acceleration reset when a joint reaches a position limit
 
 The tests also cover the complete robot control path:
 
@@ -77,14 +80,15 @@ Robot Simulator
 Updated Joint State
 ```
 
-The test suite is built with CMake and executed through CTest.
-
-Run the tests with:
+Run the test suite with:
 
 ```powershell
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
+
+**Current status: 51 tests passing, 0 failures.**
+
 ### SafetyLayer
 
 Tests verify that requested acceleration is checked against each joint's configured acceleration limit.
@@ -96,7 +100,19 @@ Coverage includes:
 - Rejecting acceleration beyond the positive limit
 - Rejecting acceleration beyond the negative limit
 
-The current test suite contains 41 passing tests.
+### RobotSimulator
+
+Tests verify the simulator's handling of joint motion and boundary conditions.
+
+Coverage includes:
+
+- Keeping stationary joints at rest
+- Integrating acceleration into velocity and position
+- Limiting positive and negative velocity
+- Enforcing minimum and maximum joint position limits
+- Leaving joint state unchanged for zero or negative time steps
+- Respecting position limits during large time steps
+- Clearing motor acceleration when a position limit is reached
 
 ## Cross-Platform Requirement
 

@@ -16,6 +16,9 @@ public:
     void update(Duration dt);
 
 private:
+    // Keep simulation updates within a reasonable time window.
+    static constexpr double max_timestep_seconds_ = 0.01;
+
     // A view of the joints being simulated.
     std::span<Joint> joints_;
 };

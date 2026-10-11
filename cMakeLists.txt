@@ -53,6 +53,8 @@ add_executable(robot_controller_tests
     tests/core/JointTests.cpp
     tests/core/RobotTests.cpp
     tests/control/PDControllerTests.cpp
+    tests/safety/SafetyLayerTests.cpp
+    tests/simulation/RobotSimulatorTests.cpp
 
     src/core/Joint.cpp
     src/core/Robot.cpp
