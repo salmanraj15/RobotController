@@ -85,8 +85,18 @@ Run the tests with:
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
+### SafetyLayer
 
-The current test suite contains 35 passing tests.
+Tests verify that requested acceleration is checked against each joint's configured acceleration limit.
+
+Coverage includes:
+
+- Accepting acceleration within the limit
+- Accepting acceleration exactly at either limit
+- Rejecting acceleration beyond the positive limit
+- Rejecting acceleration beyond the negative limit
+
+The current test suite contains 41 passing tests.
 
 ## Cross-Platform Requirement
 
